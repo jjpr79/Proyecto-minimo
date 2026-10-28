@@ -27,7 +27,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow list, read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     match /tenants/{tenantId} {

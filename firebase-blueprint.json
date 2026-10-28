@@ -12,7 +12,6 @@
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
         "phoneNumber": { "type": "string" },
-        "driveFolderId": { "type": "string" },
         "createdAt": {
           "type": "string",
           "format": "date-time"

@@ -14,6 +14,8 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarProps) {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   useEffect(() => {
     async function checkAdmin() {
@@ -27,19 +29,28 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
         }
       }
     }
-    checkAdmin();
-  }, [user]);
+    if (isOpen) {
+      checkAdmin();
+      setStatusMessage(null);
+    }
+  }, [user, isOpen]);
 
   const activateAdmin = async () => {
-    if (user) {
-      try {
-        await setDoc(doc(db, 'admins', user.uid), { createdAt: serverTimestamp() });
-        setIsAdmin(true);
-        alert("¡Estado de administrador activado!");
-      } catch (e) {
-        console.error("Error activating admin:", e);
-        alert("Error al activar administrador");
-      }
+    if (!user || isActivating) return;
+    setIsActivating(true);
+    setStatusMessage(null);
+    try {
+      await setDoc(doc(db, 'admins', user.uid), {
+        email: user.email,
+        createdAt: serverTimestamp()
+      }, { merge: true });
+      setIsAdmin(true);
+      setStatusMessage({ text: "¡Estado de administrador activado!", isError: false });
+    } catch (e: any) {
+      console.error("Error activating admin:", e);
+      setStatusMessage({ text: e?.message || "Error al activar administrador", isError: true });
+    } finally {
+      setIsActivating(false);
     }
   };
 
@@ -110,11 +121,22 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
               {user.email === 'jjpr79@gmail.com' && !isAdmin && (
                 <button
                   onClick={activateAdmin}
-                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
+                  disabled={isActivating}
+                  className="flex items-center justify-between px-4 py-3 text-sm font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60"
                 >
-                  <Zap className="w-4 h-4" />
-                  Activar Administrador
+                  <span className="flex items-center gap-3">
+                    <Zap className="w-4 h-4 text-amber-700" />
+                    {isActivating ? 'Activando...' : 'Activar Administrador'}
+                  </span>
+                  {isActivating && (
+                    <span className="w-4 h-4 border-2 border-amber-700 border-t-transparent rounded-full animate-spin" />
+                  )}
                 </button>
+              )}
+              {statusMessage && (
+                <div className={`p-3 rounded-lg text-xs font-medium ${statusMessage.isError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                  {statusMessage.text}
+                </div>
               )}
             </div>
 

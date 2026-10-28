@@ -1,19 +1,14 @@
-import { Users, Clock } from 'lucide-react';
+import { Users, Clock, ArrowLeft } from 'lucide-react';
 
 export default function AdminPage({ onBack, onNavigateToSection }: { onBack: () => void, onNavigateToSection: (section: string) => void }) {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between gap-2 p-[5px] border-b border-slate-200">
-        <div className="shrink-0">
-          <img src="/src/assets/images/app_logo_1793149440150.jpg" alt="Logo" className="w-10 h-10 rounded-full" />
-        </div>
-        <div className="font-bold text-lg">Administración</div>
-        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full">
-          ✕
-        </button>
-      </header>
-
-      <main className="flex-grow p-6">
+    <div className="p-6">
+      <button onClick={onBack} className="mb-4 flex items-center gap-2 p-2 hover:bg-slate-100 rounded-full transition-colors">
+        <ArrowLeft className="w-6 h-6 text-slate-600" />
+        <span className="font-semibold text-slate-900">Volver</span>
+      </button>
+      
+      <main>
         <div className="grid grid-cols-1 gap-4">
           <button
             onClick={() => onNavigateToSection('admin-users')}

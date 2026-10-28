@@ -1,80 +1,129 @@
 import { useEffect, useState } from 'react';
 import { db, auth } from './firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ArrowLeft, Save } from 'lucide-react';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { ArrowLeft, Save, User as UserIcon, Check, AlertCircle } from 'lucide-react';
 import { logAction } from './utils/audit';
 
 interface UserData {
   email: string;
   displayName?: string;
+  username?: string;
   photoURL?: string;
   phoneNumber?: string;
-  driveFolderId?: string;
 }
 
 export default function EditUserPage({ userId, onBack }: { userId: string, onBack: () => void }) {
-  const [user, setUser] = useState<UserData | null>(null);
+  const [user, setUser] = useState<UserData>({
+    email: '',
+    displayName: '',
+    username: '',
+    photoURL: '',
+    phoneNumber: '',
+  });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
     async function fetchData() {
-      const docSnap = await getDoc(doc(db, 'users', userId));
-      if (docSnap.exists()) {
-        setUser(docSnap.data() as UserData);
+      try {
+        const docSnap = await getDoc(doc(db, 'users', userId));
+        if (!isMounted) return;
+
+        const authUser = auth.currentUser;
+        if (docSnap.exists()) {
+          const data = docSnap.data() as UserData;
+          setUser({
+            email: data.email || (authUser?.uid === userId ? authUser?.email || '' : ''),
+            displayName: data.displayName || (authUser?.uid === userId ? authUser?.displayName || '' : ''),
+            username: data.username || (authUser?.uid === userId && authUser?.email ? authUser.email.split('@')[0] : ''),
+            photoURL: data.photoURL || (authUser?.uid === userId ? authUser?.photoURL || '' : ''),
+            phoneNumber: data.phoneNumber || (authUser?.uid === userId ? authUser?.phoneNumber || '' : ''),
+          });
+        }
+      } catch (err) {
+        console.error("Error al cargar datos del usuario:", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      setLoading(false);
     }
     fetchData();
+    return () => { isMounted = false; };
   }, [userId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !auth.currentUser) return;
+    if (!auth.currentUser || saving) return;
+
+    setSaving(true);
+    setStatusMessage(null);
+
     try {
-      await updateDoc(doc(db, 'users', userId), { ...user });
-      await logAction(`Usuario editado: ${user.email}`, auth.currentUser.email || 'Anónimo', userId);
-      alert("Usuario actualizado");
-      onBack();
-    } catch (e) {
-      alert("Error actualizando usuario");
+      await setDoc(doc(db, 'users', userId), { ...user, updatedAt: serverTimestamp() }, { merge: true });
+      await logAction(`Usuario editado: ${user.email || userId}`, auth.currentUser.email || 'Anónimo', userId);
+      setStatusMessage({ text: "¡Cambios guardados correctamente!", isError: false });
+    } catch (err: any) {
+      setStatusMessage({ text: err?.message || "Error al guardar.", isError: true });
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading) return <div className="p-8">Cargando...</div>;
+  if (loading) return <div className="p-8 text-center text-slate-500">Cargando perfil...</div>;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="flex items-center justify-between gap-2 p-[5px] border-b border-slate-200">
-        <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <div className="font-bold">Editar Usuario</div>
-        <div className="w-10"></div>
-      </header>
+    <div className="p-4 max-w-lg mx-auto w-full">
+      <button onClick={onBack} className="mb-4 flex items-center gap-2 p-2 hover:bg-slate-100 rounded-full transition-colors">
+        <ArrowLeft className="w-6 h-6 text-slate-600" />
+        <span className="font-semibold text-slate-900">Volver</span>
+      </button>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium">Nombre</label>
-          <input type="text" value={user?.displayName || ''} onChange={e => setUser({...user!, displayName: e.target.value})} className="w-full p-2 border rounded" />
+      <form onSubmit={handleSubmit} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-col items-center justify-center pb-2">
+            {user.photoURL ? (
+              <img src={user.photoURL} alt="Perfil" className="w-20 h-20 rounded-full object-cover border-2 border-slate-200" />
+            ) : (
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                <UserIcon className="w-10 h-10" />
+              </div>
+            )}
         </div>
+
+        {statusMessage && (
+          <div className={`p-3 rounded-lg text-xs font-medium flex items-center gap-2 ${statusMessage.isError ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+            {statusMessage.isError ? <AlertCircle className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+            <span>{statusMessage.text}</span>
+          </div>
+        )}
+
         <div>
-          <label className="block text-sm font-medium">Correo</label>
-          <input type="email" value={user?.email || ''} disabled className="w-full p-2 border rounded bg-slate-50" />
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre</label>
+          <input type="text" value={user.displayName || ''} onChange={(e) => setUser({ ...user, displayName: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
         </div>
+        
         <div>
-          <label className="block text-sm font-medium">URL Imagen</label>
-          <input type="text" value={user?.photoURL || ''} onChange={e => setUser({...user!, photoURL: e.target.value})} className="w-full p-2 border rounded" />
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Usuario</label>
+          <input type="text" value={user.username || ''} onChange={(e) => setUser({ ...user, username: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
         </div>
+
         <div>
-          <label className="block text-sm font-medium">Teléfono</label>
-          <input type="tel" value={user?.phoneNumber || ''} onChange={e => setUser({...user!, phoneNumber: e.target.value})} className="w-full p-2 border rounded" />
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Correo electrónico</label>
+          <input type="email" value={user.email || ''} disabled className="w-full px-3 py-2 text-sm border rounded-lg bg-slate-50 cursor-not-allowed" />
         </div>
+
         <div>
-          <label className="block text-sm font-medium">Drive Folder ID</label>
-          <input type="text" value={user?.driveFolderId || ''} onChange={e => setUser({...user!, driveFolderId: e.target.value})} className="w-full p-2 border rounded" />
+          <label className="block text-xs font-semibold text-slate-600 mb-1">URL Imagen</label>
+          <input type="text" value={user.photoURL || ''} onChange={(e) => setUser({ ...user, photoURL: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
         </div>
-        <button type="submit" className="w-full flex items-center justify-center gap-2 p-3 bg-blue-600 text-white rounded-lg">
-          <Save className="w-4 h-4" /> Guardar Cambios
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
+          <input type="tel" value={user.phoneNumber || ''} onChange={(e) => setUser({ ...user, phoneNumber: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <button type="submit" disabled={saving} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center justify-center gap-2">
+          {saving ? 'Guardando...' : <><Save className="w-4 h-4" /> Guardar Cambios</>}
         </button>
       </form>
     </div>

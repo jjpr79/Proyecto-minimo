@@ -10,38 +10,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Timeout de seguridad: si auth tarda más de 5 segundos, forzar carga
-    const safetyTimeout = setTimeout(() => {
-      console.log("Safety timeout reached, forcing loading false.");
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
       setLoading(false);
-    }, 5000);
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      clearTimeout(safetyTimeout);
-      console.log("Auth state changed, user:", user);
-      try {
-        setUser(user);
-        if (user) {
-          console.log("Syncing user profile...");
-          await setDoc(doc(db, 'users', user.uid), {
-            email: user.email,
+      if (user) {
+        // Sincronización en segundo plano completamente no bloqueante
+        setDoc(
+          doc(db, 'users', user.uid),
+          {
+            email: user.email || '',
             displayName: user.displayName || '',
             photoURL: user.photoURL || '',
             createdAt: serverTimestamp(),
-          }, { merge: true });
-          console.log("User profile synced.");
-        }
-      } catch (e) {
-        console.error("Error creating user profile:", e);
-      } finally {
-        console.log("Setting loading to false.");
-        setLoading(false);
+          },
+          { merge: true }
+        ).catch((err) => {
+          console.warn("Background user sync notice:", err);
+        });
       }
     });
-    return () => {
-      clearTimeout(safetyTimeout);
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
   return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
