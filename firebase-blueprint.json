@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "user": {
+      "title": "User",
+      "description": "User profile data",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "driveFolderId": { "type": "string" },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "tenant": {
+      "title": "Tenant",
+      "description": "Organization data",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["name", "createdAt"]
+    },
+    "tenantMember": {
+      "title": "Tenant Member",
+      "description": "Membership data",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["admin", "member"]
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["role", "joinedAt"]
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "description": "System changes history",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "performedBy": { "type": "string" },
+        "target": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "performedBy", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles"
+    },
+    "/tenants/{tenantId}": {
+      "schema": "tenant",
+      "description": "Organization profiles"
+    },
+    "/tenants/{tenantId}/members/{userId}": {
+      "schema": "tenantMember",
+      "description": "Tenant membership"
+    },
+    "/auditLogs/{logId}": {
+      "schema": "auditLog",
+      "description": "System changes history"
+    }
+  }
+}

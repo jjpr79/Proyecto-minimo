@@ -1,0 +1,6 @@
+{
+  "name": "Minimalist Auth App",
+  "description": "A secure, minimalist authentication application with Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
