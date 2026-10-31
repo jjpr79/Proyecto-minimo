@@ -5,6 +5,7 @@ import UsersManagementPage from './UsersManagementPage';
 import EditUserPage from './EditUserPage';
 import AuditLogPage from './AuditLogPage';
 import Layout from './components/Layout';
+import ImageUploader from './components/ImageUploader';
 
 export default function App() {
   const { user, loading } = useAuth();
@@ -47,10 +48,11 @@ export default function App() {
         return <AuditLogPage onBack={() => setCurrentPage('admin')} />;
       default:
         return (
-          <main className="flex-grow flex items-center justify-center p-6">
+          <main className="flex-grow flex flex-col items-center justify-center p-6">
             <h1 className="text-4xl font-bold text-slate-900">
               {user ? `Hola, ${user.email}!` : 'Hola, mundo!'}
             </h1>
+            {user && <ImageUploader />}
           </main>
         );
     }

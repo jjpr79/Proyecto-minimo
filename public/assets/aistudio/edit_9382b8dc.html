@@ -1,0 +1,399 @@
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editar Vehículo | AutosYa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen py-10 px-4">
+
+  <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md p-8 border border-gray-200">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold text-gray-800">Editar Vehículo <span id="displayId" class="text-blue-600"></span>
+      </h1>
+    </div>
+
+    <div id="loadingOverlay" class="bg-blue-50 p-6 text-center rounded-lg mb-6 border border-blue-200">
+      <p class="text-blue-800 font-bold animate-pulse">Buscando datos del vehículo en el servidor...</p>
+    </div>
+
+    <form id="formPublicar" class="space-y-6 hidden">
+      <input type="hidden" id="idSecuencial">
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700">Título del Anuncio</label>
+        <input type="text" id="titulo"
+          class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600">
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-sm font-semibold text-gray-700">Marca</label>
+          <select id="marca"
+            class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 bg-white"></select>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-gray-700">Modelo</label>
+          <select id="modelo"
+            class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600 bg-white"></select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div><label class="block text-sm font-semibold text-gray-700">Año</label><input type="number" id="anio"
+            class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg"></div>
+        <div><label class="block text-sm font-semibold text-gray-700">Precio</label><input type="number" id="precio"
+            class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg"></div>
+        <div><label class="block text-sm font-semibold text-gray-700">Kilometraje</label><input type="number"
+            id="kilometraje" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg"></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700">Transmisión</label>
+          <select id="transmision" class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded">
+            <option value="Mecánica">Mecánica</option>
+            <option value="Automática">Automática</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700">Combustible</label>
+          <select id="combustible" class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded">
+            <option value="Gasolina">Gasolina</option>
+            <option value="Diesel">Diesel</option>
+            <option value="Eléctrico">Eléctrico</option>
+            <option value="Híbrido">Híbrido</option>
+          </select>
+        </div>
+        <div><label class="block text-xs font-semibold text-gray-700">Motor</label><input type="number" id="motor"
+            step="0.1" class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded"></div>
+        <div><label class="block text-xs font-semibold text-gray-700">Color</label><select id="color"
+            class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded"></select></div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div><label class="block text-xs font-semibold text-gray-700">Último dígito placa</label><input type="number"
+            id="digitoPlaca" class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded"></div>
+        <div class="col-span-2"><label class="block text-xs font-semibold text-gray-700">Ciudad de la
+            Placa</label><input type="text" id="ciudadPlaca"
+            class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded"></div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700">Nacionalidad</label>
+          <select id="nacionalidad" class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded">
+            <option value="Colombiano">Colombiano</option>
+            <option value="Venezolano">Venezolano</option>
+          </select>
+        </div>
+        <div><label class="block text-xs font-semibold text-gray-700">Tipo</label><select id="tipo"
+            class="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded"></select></div>
+      </div>
+
+      <div><label class="block text-sm font-semibold text-gray-700">Dueño</label><input type="text" id="dueno"
+          class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg"></div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-2">Imágenes (Las existentes ya están en
+          Drive)</label>
+        <div id="dropzone"
+          class="border-2 border-dashed border-blue-400 bg-blue-50 hover:bg-blue-100 rounded-lg p-8 text-center cursor-pointer transition-colors relative">
+          <p class="text-blue-800 font-medium">Arrastra nuevas fotos para añadirlas</p>
+          <input type="file" id="inputImagenesOculto" multiple accept="image/*"
+            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+        </div>
+        <div id="galeriaPrevia"
+          class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4 min-h-[100px] p-4 bg-gray-50 border border-gray-200 rounded-lg empty:hidden">
+        </div>
+      </div>
+
+      <div><label class="block text-sm font-semibold text-gray-700">Descripción</label><textarea id="contenido" rows="5"
+          class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-600"></textarea>
+      </div>
+
+      <button type="submit" id="btnSubmit"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow flex justify-center items-center">
+        <span id="btnText">Guardar Cambios</span>
+        <svg id="spinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg"
+          fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+          </path>
+        </svg>
+      </button>
+
+      <div id="alerta" class="hidden p-4 rounded-lg text-center font-medium"></div>
+    </form>
+  </div>
+
+  <script>
+    // =========================================================================
+    const URL_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbwRfGbISx9DnPoc6lBIaw6qXx4R6dJEHBGIexfv-0pO6R2oOlzAnneuc4avXS2vRCK6uQ/exec";
+    const URL_CSV_GOOGLE_SHEET = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUXSBa4HqBFoaoXLVQW8Pvh7BRTfIhc3K8fz9wqBZHrE3DM1oo-A5v-5vsB74osUxNYOD5zEFA60vF/pub?gid=1038341741&single=true&output=csv";
+    // =========================================================================
+
+    let modelosPorMarca = {};
+    let archivosAlmacenados = [];
+    const galeria = document.getElementById('galeriaPrevia');
+
+    // Obtener el ID de la URL (ej: edit.html?id=42294)
+    const urlParams = new URLSearchParams(window.location.search);
+    const idVehiculo = urlParams.get('id');
+
+    if (!idVehiculo) {
+      document.getElementById('loadingOverlay').innerHTML = "<p class='text-red-600 font-bold'>Error: No se proporcionó ningún ID en la URL.</p>";
+    } else {
+      cargarEInicializar();
+    }
+
+    async function cargarEInicializar() {
+      Papa.parse(URL_CSV_GOOGLE_SHEET, {
+        download: true,
+        header: true,
+        complete: function (results) {
+          const marcas = new Set();
+          const colores = new Set();
+          const tipos = new Set();
+          let vehiculoAEditar = null;
+
+          results.data.forEach(item => {
+            // Recolectar datos para los selects
+            if (item['Categorías']) {
+              const partes = item['Categorías'].split('>');
+              if (partes.length > 0) {
+                const marca = partes[0].trim();
+                marcas.add(marca);
+                if (partes.length > 1) {
+                  if (!modelosPorMarca[marca]) modelosPorMarca[marca] = new Set();
+                  modelosPorMarca[marca].add(partes[1].trim());
+                }
+              }
+            }
+            if (item['color_']) colores.add(item['color_'].trim());
+            if (item['tipo']) tipos.add(item['tipo'].trim());
+
+            // Buscar el vehículo que coincide con el ID de la URL
+            if (item.ID === idVehiculo) {
+              vehiculoAEditar = item;
+            }
+          });
+
+          if (!vehiculoAEditar) {
+            document.getElementById('loadingOverlay').innerHTML = `<p class='text-red-600 font-bold'>Error: No se encontró el vehículo con ID ${idVehiculo}.</p>`;
+            return;
+          }
+
+          // Llenar selects base
+          llenarSelect('marca', Array.from(marcas).sort());
+          llenarSelect('color', Array.from(colores).sort());
+          llenarSelect('tipo', Array.from(tipos).sort());
+
+          // Pre-llenar el formulario
+          preLlenarFormulario(vehiculoAEditar);
+        }
+      });
+    }
+
+    function llenarSelect(id, array) {
+      const select = document.getElementById(id);
+      select.innerHTML = `<option value="">Seleccionar...</option>` + array.map(item => `<option value="${item}">${item}</option>`).join('');
+    }
+
+    function preLlenarFormulario(vehiculo) {
+      document.getElementById('displayId').innerText = "#" + vehiculo.ID;
+      document.getElementById('idSecuencial').value = vehiculo.ID;
+      document.getElementById('titulo').value = vehiculo.Title;
+      document.getElementById('anio').value = vehiculo.a_o;
+      document.getElementById('precio').value = vehiculo.Price;
+      document.getElementById('kilometraje').value = vehiculo.Mileage;
+      document.getElementById('transmision').value = vehiculo.Transmission;
+      document.getElementById('combustible').value = vehiculo.Fuel;
+      document.getElementById('motor').value = vehiculo.Engine;
+      document.getElementById('digitoPlaca').value = vehiculo.Plate_last_digit;
+      document.getElementById('ciudadPlaca').value = vehiculo.ciudad_de_la_placa;
+      document.getElementById('nacionalidad').value = vehiculo.nac;
+      document.getElementById('dueno').value = vehiculo.dueno;
+      document.getElementById('contenido').value = vehiculo.Content;
+
+      // Autoseleccionar Color y Tipo
+      setTimeout(() => {
+        document.getElementById('color').value = vehiculo.color_;
+        document.getElementById('tipo').value = vehiculo.tipo;
+      }, 100);
+
+      // Desarmar la categoría y autoseleccionar Marca y Modelo
+      if (vehiculo['Categorías']) {
+        const partes = vehiculo['Categorías'].split('>');
+        if (partes.length > 0) {
+          const marca = partes[0].trim();
+          document.getElementById('marca').value = marca;
+
+          // Llenar modelos de esa marca
+          const modelos = Array.from(modelosPorMarca[marca] || []).sort();
+          llenarSelect('modelo', modelos);
+          if (partes.length > 1) {
+            document.getElementById('modelo').value = partes[1].trim();
+          }
+        }
+      }
+
+      // Cargar imágenes existentes desde Drive
+      if (vehiculo.Images) {
+        const idsDrive = vehiculo.Images.split('|').map(id => id.trim()).filter(Boolean);
+        idsDrive.forEach(driveId => {
+          const idUnico = Math.random().toString(36).substr(2, 9);
+          // Registrarla como "existente" para no volver a subirla
+          archivosAlmacenados.push({ id: idUnico, tipo: 'existente', driveId: driveId });
+          crearMiniatura(idUnico, `https://drive.google.com/thumbnail?id=${driveId}&sz=w800`);
+        });
+      }
+
+      // Mostrar el formulario y ocultar el aviso de carga
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      document.getElementById('formPublicar').classList.remove('hidden');
+    }
+
+    // Lógica Marca -> Modelo al cambiar manualmente
+    document.getElementById('marca').addEventListener('change', function (e) {
+      const marca = e.target.value;
+      const modelos = modelosPorMarca[marca] ? Array.from(modelosPorMarca[marca]).sort() : [];
+      llenarSelect('modelo', modelos);
+    });
+
+    // --- LÓGICA DE IMÁGENES ---
+    const sortable = new Sortable(galeria, { animation: 150, onEnd: actualizarEtiquetaPortada });
+
+    document.getElementById('inputImagenesOculto').addEventListener('change', function (e) {
+      Array.from(e.target.files).forEach(file => {
+        const idUnico = Math.random().toString(36).substr(2, 9);
+        // Registrarla como "nueva"
+        archivosAlmacenados.push({ id: idUnico, tipo: 'nueva', file: file });
+
+        const reader = new FileReader();
+        reader.onload = (ev) => crearMiniatura(idUnico, ev.target.result);
+        reader.readAsDataURL(file);
+      });
+      this.value = "";
+    });
+
+    function crearMiniatura(idUnico, src) {
+      const divWrapper = document.createElement('div');
+      divWrapper.className = 'relative group cursor-move aspect-video bg-gray-200 rounded overflow-hidden shadow';
+      divWrapper.setAttribute('data-id', idUnico);
+      divWrapper.innerHTML = `
+        <img src="${src}" class="object-cover w-full h-full pointer-events-none">
+        <button type="button" onclick="eliminarImagen('${idUnico}', this)" class="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow hover:bg-red-600">✕</button>
+        <div class="etiqueta-portada hidden absolute bottom-0 left-0 right-0 bg-blue-600 text-white text-[10px] text-center py-0.5 font-bold">PORTADA</div>
+      `;
+      galeria.appendChild(divWrapper);
+      actualizarEtiquetaPortada();
+    }
+
+    window.eliminarImagen = function (id, btnElement) {
+      archivosAlmacenados = archivosAlmacenados.filter(item => item.id !== id);
+      btnElement.parentElement.remove();
+      actualizarEtiquetaPortada();
+    }
+
+    function actualizarEtiquetaPortada() {
+      const items = galeria.children;
+      for (let i = 0; i < items.length; i++) {
+        const etiqueta = items[i].querySelector('.etiqueta-portada');
+        if (i === 0) etiqueta.classList.remove('hidden'); else etiqueta.classList.add('hidden');
+      }
+    }
+
+    // --- MARCA DE AGUA SOLO PARA FOTOS NUEVAS ---
+    const aplicarMarcaDeAgua = (file) => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (eventoReader) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+            canvas.width = img.width; canvas.height = img.height; ctx.drawImage(img, 0, 0);
+
+            const text = "Autosya.co";
+            const fontSize = Math.max(20, Math.floor(canvas.height / 30));
+            ctx.font = "bold " + fontSize + "px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)"; ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+            ctx.lineWidth = Math.max(1, Math.floor(fontSize / 8));
+            const x = canvas.width / 2; const y = canvas.height - (fontSize * 1.5);
+            ctx.strokeText(text, x, y); ctx.fillText(text, x, y);
+
+            resolve({ base64: canvas.toDataURL(file.type), nombre: file.name, mimeType: file.type });
+          };
+          img.src = eventoReader.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+
+    // --- SUBMIT ---
+    document.getElementById('formPublicar').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmit'); const spinner = document.getElementById('spinner'); const alerta = document.getElementById('alerta');
+
+      const elementosDOMOrdenados = Array.from(galeria.children);
+      const ordenArchivos = elementosDOMOrdenados.map(el => archivosAlmacenados.find(item => item.id === el.getAttribute('data-id')));
+
+      if (ordenArchivos.length === 0) { alert("Debe haber al menos una foto"); return; }
+
+      btn.disabled = true; btn.classList.add('opacity-75'); spinner.classList.remove('hidden'); alerta.classList.add('hidden');
+
+      try {
+        // Procesar array de imágenes (Existentes pasan directo, Nuevas reciben marca de agua)
+        const imagenesProcesadas = await Promise.all(ordenArchivos.map(async (item) => {
+          if (item.tipo === 'existente') {
+            return { tipo: 'existente', driveId: item.driveId };
+          } else {
+            const procesada = await aplicarMarcaDeAgua(item.file);
+            return { tipo: 'nueva', base64: procesada.base64, nombre: procesada.nombre, mimeType: procesada.mimeType };
+          }
+        }));
+
+        const payload = {
+          accion: "editar", // <- Bandera clave para el Backend
+          idSecuencial: document.getElementById('idSecuencial').value,
+          titulo: document.getElementById('titulo').value,
+          categoriaUnida: document.getElementById('marca').value + ">" + document.getElementById('modelo').value,
+          anio: document.getElementById('anio').value,
+          precio: document.getElementById('precio').value,
+          kilometraje: document.getElementById('kilometraje').value,
+          transmision: document.getElementById('transmision').value,
+          combustible: document.getElementById('combustible').value,
+          motor: document.getElementById('motor').value,
+          color: document.getElementById('color').value,
+          digitoPlaca: document.getElementById('digitoPlaca').value,
+          ciudadPlaca: document.getElementById('ciudadPlaca').value,
+          nacionalidad: document.getElementById('nacionalidad').value,
+          tipo: document.getElementById('tipo').value,
+          dueno: document.getElementById('dueno').value,
+          contenido: document.getElementById('contenido').value,
+          imagenesOrdenadas: imagenesProcesadas // El array mixto ordenado
+        };
+
+        const respuesta = await fetch(URL_APPS_SCRIPT, { method: 'POST', body: JSON.stringify(payload) });
+        const resultado = await respuesta.json();
+
+        alerta.classList.remove('hidden', 'bg-red-100', 'text-red-800');
+        if (resultado.exito) {
+          alerta.classList.add('bg-green-100', 'text-green-800');
+          alerta.innerText = resultado.mensaje;
+          setTimeout(() => window.location.href = 'add.html', 2000); // Redirigir al inicio después de editar
+        } else throw new Error(resultado.mensaje);
+
+      } catch (error) {
+        alerta.classList.remove('hidden', 'bg-green-100', 'text-green-800');
+        alerta.classList.add('bg-red-100', 'text-red-800'); alerta.innerText = "Error: " + error.message;
+      } finally {
+        btn.disabled = false; btn.classList.remove('opacity-75'); spinner.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+
+</html>

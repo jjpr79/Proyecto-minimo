@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '../firebase';
 import Header from './Header';
 import Footer from './Footer';
 import Sidebar from '../Sidebar';
 
 export default function Layout({ children, onNavigate }: { children: React.ReactNode, onNavigate: (page: string) => void }) {
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
@@ -15,7 +13,7 @@ export default function Layout({ children, onNavigate }: { children: React.React
       <Header 
         user={user} 
         onOpenSidebar={() => setIsSidebarOpen(true)} 
-        onSignIn={() => signInWithPopup(auth, new GoogleAuthProvider())}
+        onSignIn={signIn}
         onNavigate={onNavigate}
       />
       <Sidebar 

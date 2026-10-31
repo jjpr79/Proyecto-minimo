@@ -72,7 +72,7 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-[90%] bg-white z-50 shadow-2xl flex flex-col"
+            className="fixed top-0 right-0 h-full w-[90%] md:w-[400px] bg-white z-50 shadow-2xl flex flex-col"
           >
             {/* Encabezado */}
             <div className="flex items-center justify-between p-[5px] border-b border-slate-100">

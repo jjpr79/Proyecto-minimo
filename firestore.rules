@@ -37,8 +37,13 @@ service cloud.firestore {
       
       match /members/{userId} {
         allow read: if isTenantMember(tenantId);
-        allow create, update, delete: if getMemberRole(tenantId) == 'admin';
+        allow create: if isSignedIn() && (request.auth.uid == userId || getMemberRole(tenantId) == 'admin');
+        allow update, delete: if getMemberRole(tenantId) == 'admin';
       }
+    }
+
+    match /{path=**}/members/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
     }
 
     match /auditLogs/{logId} {

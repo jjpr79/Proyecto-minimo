@@ -3,6 +3,8 @@ import { db, auth } from './firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { ArrowLeft, Save, User as UserIcon, Check, AlertCircle } from 'lucide-react';
 import { logAction } from './utils/audit';
+import { useAuth } from './AuthContext';
+import { uploadToDrive, getDriveImageUrl } from './utils/drive';
 
 interface UserData {
   email: string;
@@ -10,6 +12,7 @@ interface UserData {
   username?: string;
   photoURL?: string;
   phoneNumber?: string;
+  googleDriveFolderId?: string;
 }
 
 export default function EditUserPage({ userId, onBack }: { userId: string, onBack: () => void }) {
@@ -19,10 +22,45 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
     username: '',
     photoURL: '',
     phoneNumber: '',
+    googleDriveFolderId: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
+  const { accessToken, signIn, refreshUser } = useAuth();
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    console.log('File selected:', file);
+    console.log('AccessToken available:', !!accessToken);
+    console.log('FolderId available:', !!user.googleDriveFolderId);
+
+    if (!file || !accessToken || !user.googleDriveFolderId) {
+      if (!user.googleDriveFolderId) {
+        setStatusMessage({ text: "Primero configura tu carpeta de Drive.", isError: true });
+      }
+      return;
+    }
+
+    setSaving(true);
+    try {
+      console.log('Starting upload...');
+      const result = await uploadToDrive(file, user.googleDriveFolderId, accessToken);
+      const imageUrl = await getDriveImageUrl(result.id, accessToken);
+      
+      const updatedData = { ...user, photoURL: imageUrl };
+      setUser(updatedData);
+      
+      await setDoc(doc(db, 'users', userId), { ...updatedData, updatedAt: serverTimestamp() }, { merge: true });
+      await refreshUser();
+      setStatusMessage({ text: "¡Imagen subida y perfil actualizado!", isError: false });
+    } catch (err: any) {
+      console.error('Upload error details:', err);
+      setStatusMessage({ text: `Error: ${err.message}`, isError: true });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -40,6 +78,7 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
             username: data.username || (authUser?.uid === userId && authUser?.email ? authUser.email.split('@')[0] : ''),
             photoURL: data.photoURL || (authUser?.uid === userId ? authUser?.photoURL || '' : ''),
             phoneNumber: data.phoneNumber || (authUser?.uid === userId ? authUser?.phoneNumber || '' : ''),
+            googleDriveFolderId: data.googleDriveFolderId || '',
           });
         }
       } catch (err) {
@@ -74,11 +113,6 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
 
   return (
     <div className="p-4 max-w-lg mx-auto w-full">
-      <button onClick={onBack} className="mb-4 flex items-center gap-2 p-2 hover:bg-slate-100 rounded-full transition-colors">
-        <ArrowLeft className="w-6 h-6 text-slate-600" />
-        <span className="font-semibold text-slate-900">Volver</span>
-      </button>
-
       <form onSubmit={handleSubmit} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col items-center justify-center pb-2">
             {user.photoURL ? (
@@ -88,6 +122,24 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
                 <UserIcon className="w-10 h-10" />
               </div>
             )}
+        </div>
+
+        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 mb-4">
+          <p className="text-xs font-semibold text-slate-600 mb-2">Estado de Google Drive</p>
+          {accessToken ? (
+            <div className="flex items-center gap-2 text-emerald-700 text-xs font-medium">
+              <Check className="w-4 h-4" />
+              <span>Conectado correctamente</span>
+            </div>
+          ) : (
+            <button 
+              type="button" 
+              onClick={signIn}
+              className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              Conectar con Google Drive
+            </button>
+          )}
         </div>
 
         {statusMessage && (
@@ -113,13 +165,18 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1">URL Imagen</label>
-          <input type="text" value={user.photoURL || ''} onChange={(e) => setUser({ ...user, photoURL: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
+          <label className="block text-xs font-semibold text-slate-600 mb-1">Imagen de Perfil</label>
+          <input type="file" onChange={handleFileChange} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" accept="image/*" />
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
           <input type="tel" value={user.phoneNumber || ''} onChange={(e) => setUser({ ...user, phoneNumber: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 mb-1">ID de carpeta de Google Drive</label>
+          <input type="text" value={user.googleDriveFolderId || ''} onChange={(e) => setUser({ ...user, googleDriveFolderId: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ej: 1ABC...xyz" />
         </div>
 
         <button type="submit" disabled={saving} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center justify-center gap-2">
