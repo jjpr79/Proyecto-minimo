@@ -2,6 +2,7 @@ import { db } from '../firebase';
 import { 
   collection, 
   doc, 
+  getDoc,
   setDoc, 
   writeBatch, 
   serverTimestamp, 
@@ -35,9 +36,11 @@ export async function createOrganization(name: string, userId: string): Promise<
     name,
     createdAt: serverTimestamp(),
     createdBy: userId,
+    memberIds: [userId],
   });
 
   batch.set(memberRef, {
+    userId,
     role: 'admin',
     joinedAt: serverTimestamp(),
   });
@@ -47,24 +50,33 @@ export async function createOrganization(name: string, userId: string): Promise<
 }
 
 export async function getUserOrganizations(userId: string): Promise<(Organization & { role: 'admin' | 'member' })[]> {
-  const q = query(collectionGroup(db, 'members'), where('userId', '==', userId));
-  const querySnapshot = await getDocs(q);
-  
-  const orgs: (Organization & { role: 'admin' | 'member' })[] = [];
-  
-  for (const docSnap of querySnapshot.docs) {
-    const tenantId = docSnap.ref.parent.parent?.id;
-    if (tenantId) {
-      const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
-      if (tenantDoc.exists()) {
-        orgs.push({
-          id: tenantId,
-          ...tenantDoc.data(),
-          role: docSnap.data().role,
-        } as Organization & { role: 'admin' | 'member' });
+  try {
+    const q = query(collectionGroup(db, 'members'), where('userId', '==', userId));
+    const querySnapshot = await getDocs(q);
+    
+    const orgs: (Organization & { role: 'admin' | 'member' })[] = [];
+    
+    for (const docSnap of querySnapshot.docs) {
+      const tenantId = docSnap.ref.parent.parent?.id;
+      if (tenantId) {
+        try {
+          const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
+          if (tenantDoc.exists()) {
+            orgs.push({
+              id: tenantId,
+              ...tenantDoc.data(),
+              role: docSnap.data().role,
+            } as Organization & { role: 'admin' | 'member' });
+          }
+        } catch (docError) {
+          console.warn("No se pudo leer el documento de la organización:", tenantId, docError);
+        }
       }
     }
+    
+    return orgs;
+  } catch (error) {
+    console.error("Error al obtener organizaciones del usuario:", error);
+    return [];
   }
-  
-  return orgs;
 }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { Organization, getUserOrganizations, createOrganization } from './utils/organization';
+import { logAction } from './utils/audit';
 
 interface OrganizationContextType {
   currentOrganization: (Organization & { role: 'admin' | 'member' }) | null;
@@ -35,26 +36,42 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
     }
     
     setIsLoadingOrganization(true);
-    const orgs = await getUserOrganizations(user.uid);
-    setUserOrganizations(orgs);
-    
-    // Set default organization if none selected
-    if (orgs.length > 0 && !currentOrganization) {
-      setCurrentOrganization(orgs[0]);
-    } else if (orgs.length === 0) {
+    try {
+      const orgs = await getUserOrganizations(user.uid);
+      setUserOrganizations(orgs);
+      
+      if (orgs.length > 0) {
+        setCurrentOrganization((prev) => {
+          if (!prev) return orgs[0];
+          const exists = orgs.find(o => o.id === prev.id);
+          return exists || orgs[0];
+        });
+      } else {
+        setCurrentOrganization(null);
+      }
+    } catch (err) {
+      console.error("Error cargando organizaciones:", err);
+      setUserOrganizations([]);
       setCurrentOrganization(null);
+    } finally {
+      setIsLoadingOrganization(false);
     }
-    setIsLoadingOrganization(false);
   };
 
   useEffect(() => {
     refreshOrganizations();
-  }, [user]);
+  }, [user?.uid]);
 
   const createOrg = async (name: string) => {
-    if (!user) return;
-    await createOrganization(name, user.uid);
-    await refreshOrganizations();
+    if (!user || !name.trim()) return;
+    try {
+      const tenantId = await createOrganization(name.trim(), user.uid);
+      await logAction(`Organización creada: ${name.trim()}`, user.email || user.uid, tenantId);
+      await refreshOrganizations();
+    } catch (err) {
+      console.error("Error al crear organización:", err);
+      throw err;
+    }
   };
 
   return (

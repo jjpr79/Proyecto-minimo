@@ -28,12 +28,18 @@
           "type": "string",
           "maxLength": 100
         },
+        "createdBy": {
+          "type": "string"
+        },
+        "memberIds": {
+          "type": "array"
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
         }
       },
-      "required": ["name", "createdAt"]
+      "required": ["name", "createdAt", "createdBy"]
     },
     "tenantMember": {
       "title": "Tenant Member",
