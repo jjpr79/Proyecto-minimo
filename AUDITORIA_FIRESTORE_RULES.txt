@@ -1,0 +1,266 @@
+================================================================================
+AUDITORÍA ARQUITECTÓNICA Y DE SEGURIDAD: FIRESTORE.RULES (CORE SAAS)
+Fecha: 2026-11-01
+Autor: Arquitecto Principal & Desarrollador Senior
+Objetivo: Evaluación exhaustiva de reglas de seguridad de Firestore para el Core
+================================================================================
+
+1. FORTALEZAS ACTUALES
+--------------------------------------------------------------------------------
+1.1. Regla por defecto de denegación global:
+     Existe un bloque universal "match /{document=**} { allow read, write: if false; }"
+     que bloquea el acceso a cualquier colección o documento no declarado explícitamente.
+     Esto cumple con la postura de seguridad Zero-Trust por defecto.
+
+1.2. Soporte nativo para Collection Group Queries:
+     Se definió la regla "match /{path=**}/members/{memberId}" que habilita y protege
+     la consulta multi-tenant "collectionGroup('members')" con filtro por userId,
+     permitiendo a OrganizationContext descubrir las organizaciones del usuario sin
+     requerir lecturas globales de todos los tenants.
+
+1.3. Aislamiento básico en lectura de usuarios:
+     En "match /users/{userId}", se restringe la lectura únicamente al propio usuario
+     o a administradores globales, protegiendo la visibilidad de perfiles.
+
+1.4. Separación de administradores globales:
+     La colección raíz "/admins/{userId}" actúa como fuente canónica para determinar
+     roles de administración global en lugar de confiar en claims manipulables del cliente.
+
+1.5. Uso de funciones auxiliares reutilizables:
+     Se estructuran funciones base ("isSignedIn", "isAdmin", "isValidId", "isTenantMember",
+     "getMemberRole") que promueven consistencia en la lógica relacional.
+
+
+2. PROBLEMAS CRÍTICOS (Vulnerabilidades de Severidad Máxima)
+--------------------------------------------------------------------------------
+2.1. Escalación de Privilegios y Auto-Adhesión No Autorizada en Tenants
+     - Ubicación: match /tenants/{tenantId}/members/{userId} (líneas 47-52)
+     - Condición actual:
+       "allow create: if isSignedIn() && (request.auth.uid == userId || ... || getMemberRole(tenantId) == 'admin')"
+     - Descripción:
+       Cualquier usuario autenticado en la plataforma puede crear un documento en
+       "/tenants/{tenantId}/members/{su_uid}" de CUALQUIER organización ajena con el
+       payload "{ role: 'admin', userId: su_uid }". La regla permite la creación
+       simplemente porque "request.auth.uid == userId", sin validar si el usuario fue
+       invitado, si es el creador del tenant en la misma transacción, ni qué rol se está
+       auto-asignando.
+     - Riesgo actual:
+       Cualquier usuario puede tomar el control administrativo total de cualquier
+       organización conociendo o descubriendo su ID, accediendo a toda su información.
+     - Impacto futuro:
+       Destrucción total del aislamiento multi-empresa (cross-tenant data breach).
+     - Complejidad de corregirlo: Media.
+     - Prioridad: CRÍTICA.
+
+2.2. Destrucción y Manipulación Libre del Registro de Auditoría
+     - Ubicación: match /auditLogs/{logId} (líneas 64-65)
+     - Condición actual:
+       "allow write: if isSignedIn();"
+     - Descripción:
+       La directiva "write" abarca "create", "update" y "delete". Cualquier usuario
+       autenticado en el sistema tiene permiso para modificar registros históricos,
+       alterar los autores o borrar por completo toda la colección de auditoría.
+     - Riesgo actual:
+       Pérdida absoluta de trazabilidad y no-repudio. Un atacante puede realizar
+       acciones indebidas y随后 borrar el rastro en Firestore.
+     - Impacto futuro:
+       Invalida cualquier proceso de auditoría legal, forense o de cumplimiento SaaS.
+     - Complejidad de corregirlo: Baja.
+     - Prioridad: CRÍTICA.
+
+2.3. Doble Fuente de Verdad No Sincronizada en Tenants (createdBy / memberIds / members)
+     - Ubicación: match /tenants/{tenantId} (líneas 35-41)
+     - Descripción:
+       La regla de lectura de un tenant permite el acceso si el usuario está en
+       "resource.data.memberIds", si coincide con "createdBy", o si es miembro según
+       la subcolección "members". Sin embargo, durante "allow create" en "/tenants/{tenantId}",
+       no se exige atómicamente que se cree el documento de membresía con "role: 'admin'".
+       Un cliente puede crear un tenant con un ID arbitrario sin membresía asociada,
+       o actualizar un tenant y desincronizar "memberIds" de la subcolección real.
+     - Riesgo actual:
+       Organizaciones huérfanas, accesos inconsistentes y riesgo de denegación de servicio.
+     - Impacto futuro:
+       Corrupción estructural del modelo multi-tenant.
+     - Complejidad de corregirlo: Media.
+     - Prioridad: CRÍTICA.
+
+
+3. PROBLEMAS IMPORTANTES (Seguridad y Resiliencia)
+--------------------------------------------------------------------------------
+3.1. Ausencia Total de Validación de Esquemas y Límites de Tamaño (Denial of Wallet)
+     - Ubicación: Todas las colecciones (users, admins, tenants, members, auditLogs)
+     - Descripción:
+       Ninguna colección valida tipos de datos ("is string", "is timestamp"), campos
+       obligatorios, ni límites de caracteres (".size() <= MAX"). No se utiliza "isValidId"
+       en los parámetros de ruta ({tenantId}, {userId}, {logId}).
+     - Riesgo actual:
+       Un usuario autenticado puede inyectar documentos con strings de 1MB (límite por doc
+       en Firestore), campos fantasma no tipados ("shadow fields"), o nombres vacíos.
+     - Impacto futuro:
+       Consumo acelerado de almacenamiento, sobrecostos de base de datos y caídas en frontend
+       por errores de parseo de propiedades inesperadas.
+     - Complejidad de corregirlo: Media.
+     - Prioridad: ALTA.
+
+3.2. Mutabilidad de Campos Inmutables de Identidad
+     - Ubicación: match /tenants/{tenantId} y match /tenants/{tenantId}/members/{userId}
+     - Descripción:
+       En "allow update", no se exige que campos críticos como "createdBy", "createdAt"
+       y "userId" permanezcan invariables. Un admin de organización puede transferir la
+       propiedad cambiando "createdBy" sin reglas de negocio, o alterar timestamps históricos.
+     - Riesgo actual:
+       Corrupción de trazabilidad de propiedad de las organizaciones.
+     - Impacto futuro:
+       Inconsistencias al determinar quién fundó o es el responsable legal del tenant.
+     - Complejidad de corregirlo: Baja.
+     - Prioridad: ALTA.
+
+3.3. Confianza en Correo Electrónico sin Verificación de Email en Regla Admin
+     - Ubicación: match /admins/{userId} (líneas 25-26)
+     - Condición actual:
+       "request.auth.token.email == 'jjpr79@gmail.com'"
+     - Descripción:
+       Se comprueba el string del correo pero no se evalúa "request.auth.token.email_verified == true".
+       Además, hardcodear un email directamente en la regla de producción introduce una deuda
+       técnica que imposibilita la gestión modular de administradores y rompe el principio
+       de desacoplamiento.
+     - Riesgo actual:
+       Si un usuario se autenticase por un mecanismo sin email verificado con ese correo,
+       podría auto-otorgarse rol de admin global.
+     - Impacto futuro:
+       Dificultad de rotación de credenciales maestras y falta de portabilidad del Core.
+     - Complejidad de corregirlo: Baja.
+     - Prioridad: ALTA.
+
+3.4. Borrado Destructivo de Organizaciones con Subcolecciones Huérfanas
+     - Ubicación: match /tenants/{tenantId} (línea 43)
+     - Descripción:
+       Se permite "allow delete" a cualquier admin de la organización. En Firestore,
+       eliminar un documento de colección NO elimina sus subcolecciones. Al borrarse
+       el tenant, la subcolección "/members" permanece intacta.
+     - Riesgo actual:
+       Cuando "getUserOrganizations" ejecuta la query "collectionGroup('members')",
+       recupera miembros huérfanos cuyo tenant ya no existe, provocando advertencias
+       y posibles excepciones en la UI.
+     - Impacto futuro:
+       Contaminación permanente de la base de datos con documentos zombie.
+     - Complejidad de corregirlo: Media.
+     - Prioridad: ALTA.
+
+3.5. Timestamps no Forzados a request.time
+     - Ubicación: users, tenants, members, auditLogs
+     - Descripción:
+       Los campos "createdAt", "joinedAt" y "timestamp" son aceptados tal como los envía
+       el cliente sin validar que "incoming().createdAt == request.time".
+     - Riesgo actual:
+       Cualquier cliente puede simular que una acción o registro ocurrió en el pasado o en el futuro.
+     - Impacto futuro:
+       Corrupción en el orden cronológico de eventos de auditoría y antigüedad de miembros.
+     - Complejidad de corregirlo: Baja.
+     - Prioridad: ALTA.
+
+
+4. PROBLEMAS MENORES (Higiene y Optimización de Reglas)
+--------------------------------------------------------------------------------
+4.1. Redundancia de Comprobaciones en /tenants/{tenantId}
+     - Ubicación: match /tenants/{tenantId} (líneas 35-40)
+     - Descripción:
+       La regla evalúa hasta 4 condiciones independientes ("createdBy", "memberIds",
+       "isTenantMember(tenantId)", "isAdmin()"). La llamada a "isTenantMember" realiza
+       una lectura "exists()", mientras que "memberIds" ya está en el propio documento.
+       Si el modelo define "memberIds", la llamada a "exists()" es redundante; si el modelo
+       define la subcolección "members", el array "memberIds" es redundante y tiene un límite
+       estricto de escalabilidad (máx. 1MB por doc).
+     - Riesgo actual:
+       Costos duplicados y posible confusión en cuál es la fuente de verdad.
+     - Impacto futuro:
+       Degradación de rendimiento y costos innecesarios en Firestore.
+     - Complejidad de corregirlo: Baja.
+     - Prioridad: MEDIA.
+
+4.2. Falta de Restricción al Borrar Usuarios en /users/{userId}
+     - Ubicación: match /users/{userId} (línea 31)
+     - Descripción:
+       "allow write" permite "delete" por parte del propio usuario. Si un usuario
+       elimina su documento en "users" mientras sigue siendo miembro de organizaciones,
+       las referencias en "members" apuntarán a perfiles inexistentes.
+     - Riesgo actual:
+       Inconsistencia referencial en listas de miembros de empresas.
+     - Impacto futuro:
+       Errores visuales ("Usuario no encontrado") en interfaces del Core.
+     - Complejidad de corregirlo: Baja.
+     - Prioridad: BAJA.
+
+4.3. Falta de Uso de isValidId en Identificadores de Ruta
+     - Ubicación: matches de nivel superior
+     - Descripción:
+       No se invoca "isValidId" en {tenantId}, {userId} o {logId}, permitiendo IDs
+       arbitrariamente largos o con caracteres no estándar.
+     - Riesgo actual:
+       Bajo, pero permite identificadores maliciosos o de longitud excesiva.
+     - Impacto futuro:
+       Incompatibilidad con URLs o filtros de cliente.
+     - Complejidad de corregirlo: Muy baja.
+     - Prioridad: BAJA.
+
+
+5. RIESGOS A FUTURO (Evolución del Core SaaS)
+--------------------------------------------------------------------------------
+5.1. Organización sin Administrador (Orphan Lockout):
+     Actualmente, un admin de un tenant puede auto-degradarse a 'member' o eliminarse de
+     la subcolección 'members'. Si es el único admin, la organización queda permanentemente
+     bloqueada sin nadie que pueda gestionar miembros o configuraciones, requiriendo la
+     intervención manual de un administrador global.
+
+5.2. Desincronización entre Contextos de React y Reglas de Seguridad:
+     - "OrganizationContext" se apoya en "getUserOrganizations" utilizando
+       "collectionGroup('members')" seguido de un "getDoc" directo a "/tenants/{tenantId}".
+     - Si una regla en Firestore rechaza el "getDoc" porque "memberIds" no contiene al usuario
+       (aunque esté en la subcolección "members"), la organización desaparece de la vista del usuario
+       a pesar de que "collectionGroup" devolvió el registro. Esta desincronización genera
+       comportamientos erráticos en la carga de la aplicación.
+
+5.3. Escalabilidad del array "memberIds" en el documento Tenant:
+     Si una organización crece a cientos o miles de miembros, mantener un array
+     "memberIds" dentro del documento del tenant alcanzará el límite de tamaño de 1MB de
+     Firestore y provocará fallos en escrituras masivas. La subcolección "members" es la
+     única estructura escalable a largo plazo.
+
+
+6. PRIORIDAD RECOMENDADA PARA CORREGIRLOS
+--------------------------------------------------------------------------------
+Fase 1 (Inmediata / Crítica):
+1. Bloquear la auto-adhesión descontrolada en "tenants/{tenantId}/members":
+   Solo permitir creación de membresías si:
+   a) Es la creación inicial del tenant donde el creador se registra a sí mismo como 'admin'.
+   b) O la creación es ejecutada por un 'admin' ya existente en ese tenant, o por un admin global.
+2. Blindar "auditLogs":
+   Restringir a "allow create: if isSignedIn()" únicamente, eliminando "update" y "delete"
+   para siempre (inmutabilidad estricta de auditoría).
+
+Fase 2 (Alta Prioridad):
+3. Validación de esquemas básicos y límites de tamaño:
+   - Forzar longitudes máximas (ej. tenant name <= 100 caracteres).
+   - Validar roles permitidos estrictamente ("admin" | "member").
+4. Inmutabilidad de campos identificadores:
+   - "createdBy", "createdAt", "joinedAt", "userId" inmutables en actualizaciones.
+5. Verificación de correo en roles administrativos:
+   - Requerir "request.auth.token.email_verified == true" para accesos privilegiados.
+
+Fase 3 (Media / Limpieza Arquitectónica):
+6. Consolidar la fuente de verdad del Tenant:
+   - Alinear "OrganizationContext" y "firestore.rules" para que la membresía dependa
+     estrictamente de la subcolección "/members", eliminando la dependencia frágil del
+     array "memberIds".
+
+
+7. PRÓXIMO PASO RECOMENDADO PARA EL CORE
+--------------------------------------------------------------------------------
+El próximo paso debe ser diseñar e implementar la corrección mínima y quirúrgica
+de "firestore.rules" enfocada exclusivamente en resolver los dos agujeros críticos:
+1) Cerrar la auto-asignación y escalación de privilegios en "members".
+2) Convertir "auditLogs" en un registro inmutable de solo adición (bloquear update y delete).
+
+Este cambio protegerá de inmediato la integridad del Core sin alterar los contratos
+de "OrganizationContext" ni "AuthContext".
+================================================================================

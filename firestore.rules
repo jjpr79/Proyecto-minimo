@@ -45,10 +45,16 @@ service cloud.firestore {
       match /members/{userId} {
         allow read: if isTenantMember(tenantId) || (isSignedIn() && (('userId' in resource.data && resource.data.userId == request.auth.uid) || request.auth.uid == userId)) || isAdmin();
         allow create: if isSignedIn() && (
-          request.auth.uid == userId || 
-          ('userId' in request.resource.data && request.resource.data.userId == request.auth.uid) || 
           getMemberRole(tenantId) == 'admin' || 
-          isAdmin()
+          isAdmin() ||
+          (
+            request.auth.uid == userId && (
+              (existsAfter(/databases/$(database)/documents/tenants/$(tenantId)) &&
+               getAfter(/databases/$(database)/documents/tenants/$(tenantId)).data.createdBy == request.auth.uid) ||
+              (exists(/databases/$(database)/documents/tenants/$(tenantId)) &&
+               get(/databases/$(database)/documents/tenants/$(tenantId)).data.createdBy == request.auth.uid)
+            )
+          )
         );
         allow update, delete: if getMemberRole(tenantId) == 'admin' || isAdmin();
       }
@@ -61,7 +67,7 @@ service cloud.firestore {
 
     match /auditLogs/{logId} {
       allow read: if isAdmin();
-      allow write: if isSignedIn();
+      allow create: if isSignedIn();
     }
   }
 }
