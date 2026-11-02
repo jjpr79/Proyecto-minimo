@@ -27,39 +27,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Fetch user data from Firestore to get the stored photoURL
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        const userData = userDoc.exists() ? userDoc.data() : {};
-        
-        // Merge with auth user
-        const mergedUser = {
-          ...user,
-          photoURL: userData.photoURL || user.photoURL,
-        } as User;
-        
-        setUser(mergedUser);
-        
-        // Note: We cannot get an OAuth token here silently. 
-        // The user must click 'Conectar' to trigger the popup.
-        // This is a security requirement.
-      } else {
-        setUser(null);
-        setAccessToken(null);
+      console.log('[AUTH] onAuthStateChanged() - User detected:', user?.uid);
+      try {
+        if (user) {
+          // Fetch user data from Firestore to get the stored photoURL
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          console.log('[AUTH] After getDoc(users/{uid}):', userDoc.exists());
+          const userData = userDoc.exists() ? userDoc.data() : {};
+
+          // Merge with auth user
+          const mergedUser = {
+            ...user,
+            photoURL: userData.photoURL || user.photoURL,
+          } as User;
+
+          setUser(mergedUser);
+        } else {
+          setUser(null);
+          setAccessToken(null);
+        }
+      } catch (error) {
+        console.error("[AUTH] Error al cargar datos del usuario:", error);
+      } finally {
+        console.log('[AUTH] setLoading(false) in finally');
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsubscribe;
   }, []);
 
   const signIn = async () => {
+    console.log('[AUTH] signIn() started');
     try {
+      console.log('[AUTH] Before signInWithPopup()');
       const result = await signInWithPopup(auth, googleProvider);
+      console.log('[AUTH] After signInWithPopup()');
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         setAccessToken(credential.accessToken);
       }
     } catch (error: any) {
+      console.error('[AUTH] signIn() error:', error);
       if (error.code === 'auth/popup-closed-by-user') {
         return;
       }

@@ -38,6 +38,10 @@ export default function UsersManagementPage({ onBack, onEdit }: { onBack: () => 
 
   const toggleAdmin = async (user: UserData) => {
     if (!auth.currentUser) return;
+    if (user.uid === auth.currentUser.uid) {
+        alert("No puedes modificar tu propio rol de administrador.");
+        return;
+    }
     try {
       if (user.isAdmin) {
         await deleteDoc(doc(db, 'admins', user.uid));
@@ -48,7 +52,8 @@ export default function UsersManagementPage({ onBack, onEdit }: { onBack: () => 
       }
       setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, isAdmin: !u.isAdmin } : u));
     } catch (e) {
-      console.error("Error actualizando rol:", e);
+      console.error("[UI] Error actualizando rol:", e);
+      alert("Error: No tienes permiso para realizar esta acción o la operación no está permitida.");
     }
   };
 
@@ -81,8 +86,7 @@ export default function UsersManagementPage({ onBack, onEdit }: { onBack: () => 
               </button>
               <button
                 onClick={() => toggleAdmin(user)}
-                className={`p-2 rounded-full transition-colors ${user.isAdmin ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'} ${user.email === 'jjpr79@gmail.com' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                disabled={user.email === 'jjpr79@gmail.com'}
+                className={`p-2 rounded-full transition-colors ${user.isAdmin ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}
               >
                 <Shield className="w-5 h-5" />
               </button>

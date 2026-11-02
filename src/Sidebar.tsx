@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap } from 'lucide-react';
+import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2 } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -111,6 +111,13 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
               >
                 <UserIcon className="w-4 h-4" />
                 Editar Perfil
+              </button>
+              <button 
+                onClick={() => { onNavigate('negocios'); onClose(); }} 
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
+              >
+                <Building2 className="w-4 h-4" />
+                Mis Negocios
               </button>
               {isAdmin && (
                 <button onClick={() => { onNavigate('admin'); onClose(); }} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left">

@@ -16,14 +16,26 @@ service cloud.firestore {
       return exists(path) ? get(path).data.role : null;
     }
 
+    function isValidTenant(data) {
+      return data.name is string &&
+             data.createdBy is string &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidMember(data) {
+      return data.userId is string &&
+             data.role in ['admin', 'member'] &&
+             data.joinedAt is timestamp;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
 
     match /admins/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin() || (isSignedIn() && request.auth.token.email == 'jjpr79@gmail.com' && request.auth.uid == userId);
-      allow delete: if isAdmin() && request.auth.token.email != 'jjpr79@gmail.com';
+      allow write: if isAdmin();
+      allow delete: if isAdmin() && userId != request.auth.uid;
     }
 
     match /users/{userId} {
@@ -38,13 +50,13 @@ service cloud.firestore {
         isTenantMember(tenantId) || 
         isAdmin()
       );
-      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid && isValidTenant(request.resource.data);
       allow update: if getMemberRole(tenantId) == 'admin' || isAdmin();
       allow delete: if getMemberRole(tenantId) == 'admin' || isAdmin();
       
       match /members/{userId} {
         allow read: if isTenantMember(tenantId) || (isSignedIn() && (('userId' in resource.data && resource.data.userId == request.auth.uid) || request.auth.uid == userId)) || isAdmin();
-        allow create: if isSignedIn() && (
+        allow create: if isSignedIn() && isValidMember(request.resource.data) && (
           getMemberRole(tenantId) == 'admin' || 
           isAdmin() ||
           (

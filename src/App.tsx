@@ -5,6 +5,7 @@ import AdminPage from './AdminPage';
 import UsersManagementPage from './UsersManagementPage';
 import EditUserPage from './EditUserPage';
 import AuditLogPage from './AuditLogPage';
+import BusinessesPage from './components/BusinessesPage';
 import Layout from './components/Layout';
 import ImageUploader from './components/ImageUploader';
 import { Building2 } from 'lucide-react';
@@ -12,7 +13,7 @@ import { Building2 } from 'lucide-react';
 export default function App() {
   const { user, loading } = useAuth();
   const { currentOrganization, userOrganizations, isLoadingOrganization, createOrg } = useOrganization();
-  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'admin-users' | 'admin-edit-user' | 'admin-historial' | 'edit-profile'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'admin-users' | 'admin-edit-user' | 'admin-historial' | 'edit-profile' | 'negocios'>('home');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const [orgName, setOrgName] = useState('');
@@ -30,7 +31,8 @@ export default function App() {
       'admin-users': '/admin/usuarios',
       'admin-edit-user': '/admin/editar-usuario',
       'admin-historial': '/admin/historial',
-      'edit-profile': '/perfil/editar'
+      'edit-profile': '/perfil/editar',
+      'negocios': '/negocios'
     };
     const newPath = routeMap[currentPage] || '/';
     if (window.location.pathname !== newPath) {
@@ -78,6 +80,8 @@ export default function App() {
         return user ? <EditUserPage userId={user.uid} onBack={() => setCurrentPage('home')} /> : null;
       case 'admin-historial':
         return <AuditLogPage onBack={() => setCurrentPage('admin')} />;
+      case 'negocios':
+        return <BusinessesPage onBack={() => setCurrentPage('home')} />;
       default:
         if (user && !currentOrganization && userOrganizations.length === 0) {
           return (
@@ -87,10 +91,10 @@ export default function App() {
                   <Building2 className="w-6 h-6" />
                 </div>
                 <h2 className="text-xl font-bold text-center text-slate-900 mb-2">
-                  Crear tu Organización
+                  Crear tu Negocio
                 </h2>
                 <p className="text-xs text-slate-500 text-center mb-6">
-                  Para comenzar a utilizar la plataforma, ingresa el nombre de tu empresa o espacio de trabajo.
+                  Para comenzar a utilizar la plataforma, ingresa el nombre de tu negocio o espacio de trabajo.
                 </p>
 
                 {orgError && (
@@ -102,7 +106,7 @@ export default function App() {
                 <form onSubmit={handleCreateOrg} className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Nombre de la Organización
+                      Nombre del Negocio
                     </label>
                     <input
                       type="text"
@@ -125,7 +129,7 @@ export default function App() {
                         <span>Creando...</span>
                       </>
                     ) : (
-                      'Crear Organización'
+                      'Crear Negocio'
                     )}
                   </button>
                 </form>
@@ -141,7 +145,7 @@ export default function App() {
             </h1>
             {currentOrganization && (
               <p className="text-sm font-medium text-slate-500 mt-2">
-                Organización: <span className="text-slate-800 font-semibold">{currentOrganization.name}</span>
+                Negocio: <span className="text-slate-800 font-semibold">{currentOrganization.name}</span>
               </p>
             )}
             {user && <ImageUploader />}

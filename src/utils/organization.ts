@@ -80,3 +80,20 @@ export async function getUserOrganizations(userId: string): Promise<(Organizatio
     return [];
   }
 }
+export async function deleteOrganization(tenantId: string): Promise<void> {
+  const batch = writeBatch(db);
+  
+  // 1. Obtener todos los miembros del negocio
+  const membersSnapshot = await getDocs(collection(db, 'tenants', tenantId, 'members'));
+  
+  // 2. Agregar eliminación de miembros al batch
+  membersSnapshot.docs.forEach((memberDoc) => {
+    batch.delete(memberDoc.ref);
+  });
+  
+  // 3. Agregar eliminación del tenant al batch
+  batch.delete(doc(db, 'tenants', tenantId));
+  
+  // 4. Ejecutar batch
+  await batch.commit();
+}
