@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2 } from 'lucide-react';
+import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2, Users } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
+import { useOrganization } from './OrganizationContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarProps) {
+  const { currentOrganization } = useOrganization();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
@@ -119,6 +121,15 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
                 <Building2 className="w-4 h-4" />
                 Mis Negocios
               </button>
+              {currentOrganization && (
+                <button 
+                  onClick={() => { onNavigate('business-members'); onClose(); }} 
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
+                >
+                  <Users className="w-4 h-4" />
+                  Miembros ({currentOrganization.name})
+                </button>
+              )}
               {isAdmin && (
                 <button onClick={() => { onNavigate('admin'); onClose(); }} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left">
                   <Shield className="w-4 h-4" />

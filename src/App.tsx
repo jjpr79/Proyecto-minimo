@@ -8,12 +8,13 @@ import AuditLogPage from './AuditLogPage';
 import BusinessesPage from './components/BusinessesPage';
 import Layout from './components/Layout';
 import ImageUploader from './components/ImageUploader';
-import { Building2 } from 'lucide-react';
+import MembersPage from './pages/business/MembersPage';
+import { Building2, Users } from 'lucide-react';
 
 export default function App() {
   const { user, loading } = useAuth();
   const { currentOrganization, userOrganizations, isLoadingOrganization, createOrg } = useOrganization();
-  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'admin-users' | 'admin-edit-user' | 'admin-historial' | 'edit-profile' | 'negocios'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'admin-users' | 'admin-edit-user' | 'admin-historial' | 'edit-profile' | 'negocios' | 'business-members'>('home');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const [orgName, setOrgName] = useState('');
@@ -32,13 +33,14 @@ export default function App() {
       'admin-edit-user': '/admin/editar-usuario',
       'admin-historial': '/admin/historial',
       'edit-profile': '/perfil/editar',
-      'negocios': '/negocios'
+      'negocios': '/negocios',
+      'business-members': currentOrganization ? `/business/${currentOrganization.id}/members` : '/negocios'
     };
     const newPath = routeMap[currentPage] || '/';
     if (window.location.pathname !== newPath) {
       window.history.pushState(null, '', newPath);
     }
-  }, [currentPage]);
+  }, [currentPage, currentOrganization?.id]);
 
   if (loading || (user && isLoadingOrganization)) {
     return (
@@ -81,7 +83,9 @@ export default function App() {
       case 'admin-historial':
         return <AuditLogPage onBack={() => setCurrentPage('admin')} />;
       case 'negocios':
-        return <BusinessesPage onBack={() => setCurrentPage('home')} />;
+        return <BusinessesPage onBack={() => setCurrentPage('home')} onNavigate={handleNavigate} />;
+      case 'business-members':
+        return <MembersPage onBack={() => setCurrentPage('home')} onNavigate={handleNavigate} />;
       default:
         if (user && !currentOrganization && userOrganizations.length === 0) {
           return (
@@ -144,9 +148,19 @@ export default function App() {
               {user ? `Hola, ${user.email}!` : 'Hola, mundo!'}
             </h1>
             {currentOrganization && (
-              <p className="text-sm font-medium text-slate-500 mt-2">
-                Negocio: <span className="text-slate-800 font-semibold">{currentOrganization.name}</span>
-              </p>
+              <div className="flex flex-col items-center gap-2 mt-2">
+                <p className="text-sm font-medium text-slate-500">
+                  Negocio: <span className="text-slate-800 font-semibold">{currentOrganization.name}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('business-members')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Gestionar Miembros</span>
+                </button>
+              </div>
             )}
             {user && <ImageUploader />}
           </main>

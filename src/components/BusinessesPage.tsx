@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useOrganization } from '../OrganizationContext';
 import CreateOrganizationView from './CreateOrganizationView';
 
-export default function BusinessesPage({ onBack }: { onBack: () => void }) {
-  const { currentOrganization, userOrganizations, deleteOrg } = useOrganization();
+export default function BusinessesPage({ onBack, onNavigate }: { onBack: () => void, onNavigate?: (page: string) => void }) {
+  const { currentOrganization, userOrganizations, deleteOrg, setCurrentOrganization } = useOrganization();
   const [orgToDelete, setOrgToDelete] = useState<{ id: string; name: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -37,14 +37,26 @@ export default function BusinessesPage({ onBack }: { onBack: () => void }) {
               <h3 className="font-semibold text-slate-900">{org.name}</h3>
               {currentOrganization?.id === org.id && <span className="text-xs font-medium text-blue-600">Negocio activo</span>}
             </div>
-            {org.role === 'admin' && (
+            <div className="flex items-center gap-2">
               <button 
-                onClick={() => setOrgToDelete({ id: org.id, name: org.name })}
-                className="text-xs text-red-600 hover:text-red-700 font-medium"
+                type="button"
+                onClick={() => {
+                  setCurrentOrganization(org);
+                  if (onNavigate) onNavigate('business-members');
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2.5 py-1 rounded-md hover:bg-blue-100/50 transition-colors"
               >
-                Eliminar Negocio
+                Miembros
               </button>
-            )}
+              {org.role === 'admin' && (
+                <button 
+                  onClick={() => setOrgToDelete({ id: org.id, name: org.name })}
+                  className="text-xs text-red-600 hover:text-red-700 font-medium px-2.5 py-1 rounded-md hover:bg-red-50 transition-colors"
+                >
+                  Eliminar Negocio
+                </button>
+              )}
+            </div>
           </div>
         ))}
       </div>
