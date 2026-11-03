@@ -1,13 +1,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { Organization, getUserOrganizations, createOrganization, deleteOrganization } from './utils/organization';
-import { logAction } from './utils/audit';
+import { createTenant, getUserTenants, deleteTenant } from './services/tenantService';
+import { logAuditEvent } from './services/auditService';
+import { TenantWithRole } from './types';
 
 interface OrganizationContextType {
-  currentOrganization: (Organization & { role: 'admin' | 'member' }) | null;
-  userOrganizations: (Organization & { role: 'admin' | 'member' })[];
+  currentOrganization: TenantWithRole | null;
+  userOrganizations: TenantWithRole[];
   isLoadingOrganization: boolean;
-  setCurrentOrganization: (org: Organization & { role: 'admin' | 'member' }) => void;
+  setCurrentOrganization: (org: TenantWithRole) => void;
   createOrg: (name: string) => Promise<void>;
   deleteOrg: (tenantId: string) => Promise<void>;
   refreshOrganizations: () => Promise<void>;
@@ -25,12 +26,11 @@ const OrganizationContext = createContext<OrganizationContextType>({
 
 export function OrganizationProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [userOrganizations, setUserOrganizations] = useState<(Organization & { role: 'admin' | 'member' })[]>([]);
-  const [currentOrganization, setCurrentOrganization] = useState<(Organization & { role: 'admin' | 'member' }) | null>(null);
+  const [userOrganizations, setUserOrganizations] = useState<TenantWithRole[]>([]);
+  const [currentOrganization, setCurrentOrganization] = useState<TenantWithRole | null>(null);
   const [isLoadingOrganization, setIsLoadingOrganization] = useState(true);
 
   const refreshOrganizations = async () => {
-    console.log('[ORG] refreshOrganizations() started');
     if (!user) {
       setUserOrganizations([]);
       setCurrentOrganization(null);
@@ -40,8 +40,7 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
     
     setIsLoadingOrganization(true);
     try {
-      const orgs = await getUserOrganizations(user.uid);
-      console.log('[ORG] After getUserOrganizations():', orgs.length);
+      const orgs = await getUserTenants(user.uid);
       setUserOrganizations(orgs);
       
       if (orgs.length > 0) {
@@ -54,11 +53,10 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
         setCurrentOrganization(null);
       }
     } catch (err) {
-      console.error("[ORG] Error cargando organizaciones:", err);
+      console.error("[OrganizationContext] Error cargando tenants del usuario:", err);
       setUserOrganizations([]);
       setCurrentOrganization(null);
     } finally {
-      console.log('[ORG] setIsLoadingOrganization(false) in finally');
       setIsLoadingOrganization(false);
     }
   };
@@ -70,11 +68,16 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
   const createOrg = async (name: string) => {
     if (!user || !name.trim()) return;
     try {
-      const tenantId = await createOrganization(name.trim(), user.uid);
-      await logAction(`Negocio creado: ${name.trim()}`, user.email || user.uid, tenantId);
+      const tenantId = await createTenant(
+        name.trim(), 
+        user.uid, 
+        user.email || undefined, 
+        user.displayName || undefined
+      );
+      await logAuditEvent(`Negocio creado: ${name.trim()}`, user.email || user.uid, tenantId);
       await refreshOrganizations();
     } catch (err) {
-      console.error("Error al crear negocio:", err);
+      console.error("[OrganizationContext] Error al crear tenant:", err);
       throw err;
     }
   };
@@ -82,11 +85,11 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
   const deleteOrg = async (tenantId: string) => {
     if (!user) return;
     try {
-      await deleteOrganization(tenantId);
-      await logAction(`Negocio eliminado: ${tenantId}`, user.email || user.uid, tenantId);
+      await deleteTenant(tenantId);
+      await logAuditEvent(`Negocio eliminado: ${tenantId}`, user.email || user.uid, tenantId);
       await refreshOrganizations();
     } catch (err) {
-      console.error("Error al eliminar negocio:", err);
+      console.error("[OrganizationContext] Error al eliminar tenant:", err);
       throw err;
     }
   };
@@ -106,4 +109,6 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
   );
 }
 
+// Hook principal y alias canónico
 export const useOrganization = () => useContext(OrganizationContext);
+export const useTenant = useOrganization;

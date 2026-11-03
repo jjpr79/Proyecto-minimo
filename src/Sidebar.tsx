@@ -1,10 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2, Users } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
-import { auth, db } from './firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from './firebase';
 import { useEffect, useState } from 'react';
 import { useOrganization } from './OrganizationContext';
+import { checkIsGlobalAdmin, toggleGlobalAdminStatus } from './services/userService';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -22,13 +22,8 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
   useEffect(() => {
     async function checkAdmin() {
       if (user) {
-        try {
-          const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-          setIsAdmin(adminDoc.exists());
-        } catch (e) {
-          console.error("Error checking admin status:", e);
-          setIsAdmin(false);
-        }
+        const adminStatus = await checkIsGlobalAdmin(user.uid);
+        setIsAdmin(adminStatus);
       }
     }
     if (isOpen) {
@@ -42,10 +37,7 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
     setIsActivating(true);
     setStatusMessage(null);
     try {
-      await setDoc(doc(db, 'admins', user.uid), {
-        email: user.email,
-        createdAt: serverTimestamp()
-      }, { merge: true });
+      await toggleGlobalAdminStatus(user.uid, user.email || '', true);
       setIsAdmin(true);
       setStatusMessage({ text: "¡Estado de administrador activado!", isError: false });
     } catch (e: any) {

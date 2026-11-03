@@ -1,34 +1,30 @@
 import { useState, useEffect } from 'react';
-import { db, auth } from './firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { auth } from './firebase';
+import { getAllUsersWithAdminStatus, toggleGlobalAdminStatus } from './services/userService';
+import { logAuditEvent } from './services/auditService';
 import { Shield, User, ArrowLeft, Edit2 } from 'lucide-react';
-import { logAction } from './utils/audit';
 
-interface UserData {
+interface ManagedUser {
   uid: string;
   email: string;
-  isAdmin: boolean;
+  isGlobalAdmin: boolean;
 }
 
 export default function UsersManagementPage({ onBack, onEdit }: { onBack: () => void, onEdit: (uid: string) => void }) {
-  const [users, setUsers] = useState<UserData[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        const adminsSnap = await getDocs(collection(db, 'admins'));
-        const adminUids = new Set(adminsSnap.docs.map(d => d.id));
-
-        const userData = usersSnap.docs.map(d => ({
-          uid: d.id,
-          email: d.data().email || 'Sin email',
-          isAdmin: adminUids.has(d.id)
-        }));
-        setUsers(userData);
+        const usersList = await getAllUsersWithAdminStatus();
+        setUsers(usersList.map(u => ({
+          uid: u.uid,
+          email: u.email,
+          isGlobalAdmin: u.isGlobalAdmin,
+        })));
       } catch (e) {
-        console.error("Error fetching data:", e);
+        console.error("[UsersManagementPage] Error cargando usuarios:", e);
       } finally {
         setLoading(false);
       }
@@ -36,23 +32,28 @@ export default function UsersManagementPage({ onBack, onEdit }: { onBack: () => 
     fetchData();
   }, []);
 
-  const toggleAdmin = async (user: UserData) => {
+  const toggleAdmin = async (targetUser: ManagedUser) => {
     if (!auth.currentUser) return;
-    if (user.uid === auth.currentUser.uid) {
-        alert("No puedes modificar tu propio rol de administrador.");
-        return;
+    if (targetUser.uid === auth.currentUser.uid) {
+      alert("No puedes modificar tu propio rol de administrador.");
+      return;
     }
+
     try {
-      if (user.isAdmin) {
-        await deleteDoc(doc(db, 'admins', user.uid));
-        await logAction(`Rol admin eliminado a: ${user.email}`, auth.currentUser.email || 'Anónimo', user.uid);
-      } else {
-        await setDoc(doc(db, 'admins', user.uid), { createdAt: new Date() });
-        await logAction(`Rol admin otorgado a: ${user.email}`, auth.currentUser.email || 'Anónimo', user.uid);
-      }
-      setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, isAdmin: !u.isAdmin } : u));
+      const willBeAdmin = !targetUser.isGlobalAdmin;
+      await toggleGlobalAdminStatus(targetUser.uid, targetUser.email, willBeAdmin);
+      
+      await logAuditEvent(
+        willBeAdmin 
+          ? `Rol admin otorgado a: ${targetUser.email}` 
+          : `Rol admin eliminado a: ${targetUser.email}`,
+        auth.currentUser.email || 'Anónimo',
+        targetUser.uid
+      );
+
+      setUsers(prev => prev.map(u => u.uid === targetUser.uid ? { ...u, isGlobalAdmin: willBeAdmin } : u));
     } catch (e) {
-      console.error("[UI] Error actualizando rol:", e);
+      console.error("[UsersManagementPage] Error actualizando rol:", e);
       alert("Error: No tienes permiso para realizar esta acción o la operación no está permitida.");
     }
   };
@@ -68,25 +69,25 @@ export default function UsersManagementPage({ onBack, onEdit }: { onBack: () => 
 
       <h2 className="text-lg font-bold mb-4">Usuarios</h2>
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-        {users.map(user => (
-          <div key={user.uid} className="flex items-center justify-between p-4 border-b border-slate-100 last:border-0">
+        {users.map(userItem => (
+          <div key={userItem.uid} className="flex items-center justify-between p-4 border-b border-slate-100 last:border-0">
             <div className="flex items-center gap-3">
               <User className="w-8 h-8 p-1 bg-slate-100 rounded-full text-slate-500" />
               <div>
-                <p className="font-medium text-sm">{user.email}</p>
-                <p className="text-xs text-slate-500 font-mono">{user.uid.slice(0, 8)}...</p>
+                <p className="font-medium text-sm">{userItem.email}</p>
+                <p className="text-xs text-slate-500 font-mono">{userItem.uid.slice(0, 8)}...</p>
               </div>
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => onEdit(user.uid)}
+                onClick={() => onEdit(userItem.uid)}
                 className="p-2 rounded-full transition-colors bg-slate-100 text-slate-600"
               >
                 <Edit2 className="w-5 h-5" />
               </button>
               <button
-                onClick={() => toggleAdmin(user)}
-                className={`p-2 rounded-full transition-colors ${user.isAdmin ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}
+                onClick={() => toggleAdmin(userItem)}
+                className={`p-2 rounded-full transition-colors ${userItem.isGlobalAdmin ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}
               >
                 <Shield className="w-5 h-5" />
               </button>

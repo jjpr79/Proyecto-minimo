@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../AuthContext';
 import { useOrganization } from '../../OrganizationContext';
 import { useMembers } from '../../hooks/useMembers';
-import { BusinessMember, MemberRole } from '../../services/memberService';
+import { TenantMember, MemberRole } from '../../types';
 import MembersTable from '../../components/members/MembersTable';
 import AddMemberModal from '../../components/members/AddMemberModal';
 import RemoveMemberDialog from '../../components/members/RemoveMemberDialog';
@@ -17,7 +17,7 @@ export default function MembersPage({ onBack, onNavigate }: MembersPageProps) {
   const { user } = useAuth();
   const { currentOrganization } = useOrganization();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [memberToRemove, setMemberToRemove] = useState<BusinessMember | null>(null);
+  const [memberToRemove, setMemberToRemove] = useState<TenantMember | null>(null);
 
   const {
     members,
@@ -69,7 +69,7 @@ export default function MembersPage({ onBack, onNavigate }: MembersPageProps) {
     await addMember(email, role);
   };
 
-  const handleRemoveMember = async (member: BusinessMember) => {
+  const handleRemoveMember = async (member: TenantMember) => {
     await removeMember(member);
   };
 

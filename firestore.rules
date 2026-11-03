@@ -44,10 +44,10 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
+      // Fuente única de verdad: membresía activa en la subcolección o administrador global
       allow read: if isSignedIn() && (
-        ('createdBy' in resource.data && resource.data.createdBy == request.auth.uid) || 
-        ('memberIds' in resource.data && request.auth.uid in resource.data.memberIds) ||
         isTenantMember(tenantId) || 
+        ('createdBy' in resource.data && resource.data.createdBy == request.auth.uid) ||
         isAdmin()
       );
       allow create: if isSignedIn() && request.resource.data.createdBy == request.auth.uid && isValidTenant(request.resource.data);
@@ -68,7 +68,17 @@ service cloud.firestore {
             )
           )
         );
-        allow update, delete: if getMemberRole(tenantId) == 'admin' || isAdmin();
+        // Protección de administrador: un admin no puede auto-degradarse a member ni auto-eliminarse
+        allow update: if isValidMember(request.resource.data) && (
+          isAdmin() || (
+            getMemberRole(tenantId) == 'admin' && (
+              request.auth.uid != userId || request.resource.data.role == 'admin'
+            )
+          )
+        );
+        allow delete: if isAdmin() || (
+          getMemberRole(tenantId) == 'admin' && request.auth.uid != userId
+        );
       }
     }
 

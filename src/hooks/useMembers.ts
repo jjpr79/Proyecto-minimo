@@ -1,22 +1,22 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
+import { TenantMember, MemberRole } from '../types';
 import { 
-  BusinessMember, 
-  MemberRole, 
   getBusinessMembers, 
   findUserByEmail, 
   addMemberToBusiness, 
-  removeMemberFromBusiness 
+  removeMemberFromBusiness,
+  updateMemberRole
 } from '../services/memberService';
 
-export function useMembers(businessId: string | null | undefined) {
+export function useMembers(tenantId: string | null | undefined) {
   const { user } = useAuth();
-  const [members, setMembers] = useState<BusinessMember[]>([]);
+  const [members, setMembers] = useState<TenantMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchMembers = useCallback(async () => {
-    if (!businessId) {
+    if (!tenantId) {
       setMembers([]);
       setLoading(false);
       return;
@@ -25,7 +25,7 @@ export function useMembers(businessId: string | null | undefined) {
     setLoading(true);
     setError(null);
     try {
-      const data = await getBusinessMembers(businessId);
+      const data = await getBusinessMembers(tenantId);
       setMembers(data);
     } catch (err: any) {
       console.error("[useMembers] Error cargando miembros:", err);
@@ -33,7 +33,7 @@ export function useMembers(businessId: string | null | undefined) {
     } finally {
       setLoading(false);
     }
-  }, [businessId]);
+  }, [tenantId]);
 
   useEffect(() => {
     fetchMembers();
@@ -57,12 +57,12 @@ export function useMembers(businessId: string | null | undefined) {
    * Agrega un nuevo miembro por email validando existencia previa y rol.
    */
   const addMember = async (email: string, role: MemberRole): Promise<void> => {
-    if (!businessId) throw new Error("No hay un negocio seleccionado.");
+    if (!tenantId) throw new Error("No hay un negocio seleccionado.");
 
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) throw new Error("Debes ingresar un correo electrónico.");
 
-    // 1. Validar si ya es miembro actual del negocio
+    // 1. Validar si ya es miembro actual del tenant
     const existing = members.find(m => m.email.toLowerCase() === normalizedEmail);
     if (existing) {
       throw new Error("Este usuario ya es miembro de este negocio.");
@@ -74,27 +74,33 @@ export function useMembers(businessId: string | null | undefined) {
       throw new Error("No existe una cuenta registrada con ese email.");
     }
 
-    // Verificar también por UID
+    // 3. Verificar también por UID
     if (members.some(m => m.uid === foundUser.uid)) {
       throw new Error("Este usuario ya es miembro de este negocio.");
     }
 
-    // 3. Crear membresía
-    await addMemberToBusiness(businessId, foundUser, role);
+    // 4. Crear membresía
+    await addMemberToBusiness(tenantId, foundUser, role);
 
-    // 4. Actualizar estado local
+    // 5. Actualizar lista
     await fetchMembers();
   };
 
   /**
-   * Elimina un miembro aplicando las invariantes de negocio.
+   * Actualiza el rol de un miembro respetando la invariante del último administrador.
    */
-  const removeMember = async (memberToRemove: BusinessMember): Promise<void> => {
-    if (!businessId) throw new Error("No hay un negocio seleccionado.");
+  const changeMemberRole = async (member: TenantMember, newRole: MemberRole): Promise<void> => {
+    if (!tenantId) throw new Error("No hay un negocio seleccionado.");
+    await updateMemberRole(tenantId, member, newRole, members);
+    await fetchMembers();
+  };
 
-    await removeMemberFromBusiness(businessId, memberToRemove, members, user?.uid || null);
-
-    // Actualizar estado local
+  /**
+   * Elimina un miembro aplicando las invariantes de administración.
+   */
+  const removeMember = async (memberToRemove: TenantMember): Promise<void> => {
+    if (!tenantId) throw new Error("No hay un negocio seleccionado.");
+    await removeMemberFromBusiness(tenantId, memberToRemove, members, user?.uid || null);
     await fetchMembers();
   };
 
@@ -106,6 +112,7 @@ export function useMembers(businessId: string | null | undefined) {
     currentMember,
     isCurrentMemberAdmin,
     addMember,
+    changeMemberRole,
     removeMember,
     refreshMembers: fetchMembers,
   };

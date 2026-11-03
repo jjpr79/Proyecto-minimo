@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MemberRole } from '../../services/memberService';
+import { MemberRole } from '../../types';
 import { X, UserPlus, AlertCircle } from 'lucide-react';
 
 interface AddMemberModalProps {

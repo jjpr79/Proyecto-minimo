@@ -1,22 +1,15 @@
 import { useEffect, useState } from 'react';
-import { db, auth } from './firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from './firebase';
 import { ArrowLeft, Save, User as UserIcon, Check, AlertCircle } from 'lucide-react';
-import { logAction } from './utils/audit';
+import { logAuditEvent } from './services/auditService';
+import { getUserProfile, saveUserProfile } from './services/userService';
+import { UserProfile } from './types';
 import { useAuth } from './AuthContext';
 import { uploadToDrive, getDriveImageUrl } from './utils/drive';
 
-interface UserData {
-  email: string;
-  displayName?: string;
-  username?: string;
-  photoURL?: string;
-  phoneNumber?: string;
-  googleDriveFolderId?: string;
-}
-
 export default function EditUserPage({ userId, onBack }: { userId: string, onBack: () => void }) {
-  const [user, setUser] = useState<UserData>({
+  const [user, setUser] = useState<UserProfile>({
+    uid: userId,
     email: '',
     displayName: '',
     username: '',
@@ -51,7 +44,7 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
       const updatedData = { ...user, photoURL: imageUrl };
       setUser(updatedData);
       
-      await setDoc(doc(db, 'users', userId), { ...updatedData, updatedAt: serverTimestamp() }, { merge: true });
+      await saveUserProfile(userId, updatedData);
       await refreshUser();
       setStatusMessage({ text: "¡Imagen subida y perfil actualizado!", isError: false });
     } catch (err: any) {
@@ -66,19 +59,19 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
     let isMounted = true;
     async function fetchData() {
       try {
-        const docSnap = await getDoc(doc(db, 'users', userId));
+        const profile = await getUserProfile(userId);
         if (!isMounted) return;
 
         const authUser = auth.currentUser;
-        if (docSnap.exists()) {
-          const data = docSnap.data() as UserData;
+        if (profile) {
           setUser({
-            email: data.email || (authUser?.uid === userId ? authUser?.email || '' : ''),
-            displayName: data.displayName || (authUser?.uid === userId ? authUser?.displayName || '' : ''),
-            username: data.username || (authUser?.uid === userId && authUser?.email ? authUser.email.split('@')[0] : ''),
-            photoURL: data.photoURL || (authUser?.uid === userId ? authUser?.photoURL || '' : ''),
-            phoneNumber: data.phoneNumber || (authUser?.uid === userId ? authUser?.phoneNumber || '' : ''),
-            googleDriveFolderId: data.googleDriveFolderId || '',
+            uid: userId,
+            email: profile.email || (authUser?.uid === userId ? authUser?.email || '' : ''),
+            displayName: profile.displayName || (authUser?.uid === userId ? authUser?.displayName || '' : ''),
+            username: profile.username || (authUser?.uid === userId && authUser?.email ? authUser.email.split('@')[0] : ''),
+            photoURL: profile.photoURL || (authUser?.uid === userId ? authUser?.photoURL || '' : ''),
+            phoneNumber: profile.phoneNumber || (authUser?.uid === userId ? authUser?.phoneNumber || '' : ''),
+            googleDriveFolderId: profile.googleDriveFolderId || '',
           });
         }
       } catch (err) {
@@ -99,8 +92,8 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
     setStatusMessage(null);
 
     try {
-      await setDoc(doc(db, 'users', userId), { ...user, updatedAt: serverTimestamp() }, { merge: true });
-      await logAction(`Usuario editado: ${user.email || userId}`, auth.currentUser.email || 'Anónimo', userId);
+      await saveUserProfile(userId, user);
+      await logAuditEvent(`Usuario editado: ${user.email || userId}`, auth.currentUser.email || 'Anónimo', userId);
       setStatusMessage({ text: "¡Cambios guardados correctamente!", isError: false });
     } catch (err: any) {
       setStatusMessage({ text: err?.message || "Error al guardar.", isError: true });

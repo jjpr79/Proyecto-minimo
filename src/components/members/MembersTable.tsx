@@ -1,12 +1,12 @@
-import { BusinessMember } from '../../services/memberService';
+import { TenantMember } from '../../types';
 import MemberRow from './MemberRow';
 
 interface MembersTableProps {
-  members: BusinessMember[];
+  members: TenantMember[];
   currentUserId: string | null | undefined;
   canManage: boolean;
   adminCount: number;
-  onRemove: (member: BusinessMember) => void;
+  onRemove: (member: TenantMember) => void;
 }
 
 export default function MembersTable({

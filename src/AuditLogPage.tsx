@@ -1,31 +1,19 @@
 import { useEffect, useState } from 'react';
-import { db } from './firebase';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { getAuditLogs } from './services/auditService';
+import { AuditLogEntry } from './types';
 import { ArrowLeft, Clock } from 'lucide-react';
 
-interface LogData {
-  id: string;
-  action: string;
-  performedBy: string;
-  timestamp: any;
-}
-
 export default function AuditLogPage({ onBack }: { onBack: () => void }) {
-  const [logs, setLogs] = useState<LogData[]>([]);
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const logsSnap = await getDocs(query(collection(db, 'auditLogs')));
-        const logData = logsSnap.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        })) as LogData[];
-        logData.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+        const logData = await getAuditLogs();
         setLogs(logData);
       } catch (e) {
-        console.error("Error fetching logs:", e);
+        console.error("[AuditLogPage] Error al obtener registros:", e);
       } finally {
         setLoading(false);
       }

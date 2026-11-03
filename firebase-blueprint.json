@@ -31,9 +31,6 @@
         "createdBy": {
           "type": "string"
         },
-        "memberIds": {
-          "type": "array"
-        },
         "createdAt": {
           "type": "string",
           "format": "date-time"

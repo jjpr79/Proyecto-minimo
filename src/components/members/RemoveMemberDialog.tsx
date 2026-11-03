@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { BusinessMember } from '../../services/memberService';
+import { TenantMember } from '../../types';
 import { AlertTriangle, X } from 'lucide-react';
 
 interface RemoveMemberDialogProps {
-  member: BusinessMember | null;
+  member: TenantMember | null;
   onClose: () => void;
-  onConfirm: (member: BusinessMember) => Promise<void>;
+  onConfirm: (member: TenantMember) => Promise<void>;
 }
 
 export default function RemoveMemberDialog({

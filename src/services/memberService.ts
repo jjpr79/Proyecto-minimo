@@ -6,93 +6,42 @@ import {
   getDoc, 
   setDoc, 
   deleteDoc, 
-  query, 
-  where, 
-  serverTimestamp, 
-  updateDoc, 
-  arrayUnion, 
-  arrayRemove 
+  updateDoc,
+  serverTimestamp 
 } from 'firebase/firestore';
+import { MemberRole, TenantMember, UserProfile } from '../types';
+import { findUserByEmail as lookupUserByEmail } from './userService';
 
-export type MemberRole = 'admin' | 'member';
-
-export interface BusinessMember {
-  uid: string;
-  email: string;
-  displayName: string;
-  role: MemberRole;
-  joinedAt: any;
-}
-
-export interface UserLookupResult {
-  uid: string;
-  email: string;
-  displayName: string;
-}
+export type BusinessMember = TenantMember;
 
 /**
- * Busca un usuario registrado por su correo electrónico en la colección 'users'.
+ * Busca un usuario registrado por email utilizando userService.
  */
-export async function findUserByEmail(email: string): Promise<UserLookupResult | null> {
+export async function findUserByEmail(email: string): Promise<UserProfile | null> {
   const normalized = email.trim().toLowerCase();
+  const user = await lookupUserByEmail(normalized);
+  if (user) return user;
 
-  try {
-    // 1. Búsqueda por email normalizado (minúsculas)
-    const q1 = query(collection(db, 'users'), where('email', '==', normalized));
-    const snap1 = await getDocs(q1);
-
-    if (!snap1.empty) {
-      const docSnap = snap1.docs[0];
-      const data = docSnap.data();
-      return {
-        uid: docSnap.id,
-        email: data.email || normalized,
-        displayName: data.displayName || data.username || (data.email ? data.email.split('@')[0] : 'Usuario'),
-      };
-    }
-
-    // 2. Búsqueda por email con formato original (por si no se guardó en minúsculas)
-    if (email.trim() !== normalized) {
-      const q2 = query(collection(db, 'users'), where('email', '==', email.trim()));
-      const snap2 = await getDocs(q2);
-      if (!snap2.empty) {
-        const docSnap = snap2.docs[0];
-        const data = docSnap.data();
-        return {
-          uid: docSnap.id,
-          email: data.email || email.trim(),
-          displayName: data.displayName || data.username || (data.email ? data.email.split('@')[0] : 'Usuario'),
-        };
-      }
-    }
-
-    // 3. Fallback de resolución: si el email coincide con el usuario autenticado actual
-    if (auth.currentUser && auth.currentUser.email?.toLowerCase() === normalized) {
-      return {
-        uid: auth.currentUser.uid,
-        email: auth.currentUser.email,
-        displayName: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
-      };
-    }
-
-    return null;
-  } catch (error: any) {
-    console.error("[memberService] Error al buscar usuario por email:", error);
-    // Si falla por permisos en colección /users, propagamos el error para retroalimentación
-    if (error?.code === 'permission-denied') {
-      throw new Error("Permisos insuficientes para buscar en el directorio de usuarios.");
-    }
-    throw error;
+  // Fallback para el usuario activo en sesión
+  if (auth.currentUser && auth.currentUser.email?.toLowerCase() === normalized) {
+    return {
+      uid: auth.currentUser.uid,
+      email: auth.currentUser.email,
+      displayName: auth.currentUser.displayName || auth.currentUser.email.split('@')[0],
+    };
   }
+
+  return null;
 }
 
 /**
- * Obtiene la lista completa de miembros de un negocio dado su ID (tenantId).
+ * Obtiene la lista completa de miembros de un tenant ('tenants/{tenantId}/members').
+ * La subcolección es la única fuente de verdad.
  */
-export async function getBusinessMembers(businessId: string): Promise<BusinessMember[]> {
+export async function getBusinessMembers(tenantId: string): Promise<TenantMember[]> {
   try {
-    const membersSnap = await getDocs(collection(db, 'tenants', businessId, 'members'));
-    const members: BusinessMember[] = [];
+    const membersSnap = await getDocs(collection(db, 'tenants', tenantId, 'members'));
+    const members: TenantMember[] = [];
 
     for (const memberDoc of membersSnap.docs) {
       const data = memberDoc.data();
@@ -100,8 +49,7 @@ export async function getBusinessMembers(businessId: string): Promise<BusinessMe
       let email = data.email || '';
       let displayName = data.displayName || '';
 
-      // Si el documento de membresía no cuenta con email o displayName (ej: creados en versiones anteriores),
-      // intentamos resolverlos desde users/{uid} o desde la sesión actual
+      // Si el documento de membresía no tiene email o displayName, intentar resolver desde users/{uid}
       if (!email || !displayName) {
         if (auth.currentUser && auth.currentUser.uid === uid) {
           email = email || auth.currentUser.email || '';
@@ -115,7 +63,7 @@ export async function getBusinessMembers(businessId: string): Promise<BusinessMe
               displayName = displayName || uData.displayName || uData.username || '';
             }
           } catch {
-            // Si las reglas no permiten leer users/{uid} de terceros, usamos valores legibles por defecto
+            // Manejo de reglas restrictivas
           }
         }
       }
@@ -129,7 +77,7 @@ export async function getBusinessMembers(businessId: string): Promise<BusinessMe
       });
     }
 
-    // Ordenar: primero administradores, luego miembros alfabéticamente por displayName
+    // Ordenamiento: administradores primero, luego colaboradores alfabéticamente
     members.sort((a, b) => {
       if (a.role === 'admin' && b.role !== 'admin') return -1;
       if (a.role !== 'admin' && b.role === 'admin') return 1;
@@ -144,34 +92,25 @@ export async function getBusinessMembers(businessId: string): Promise<BusinessMe
 }
 
 /**
- * Agrega un nuevo miembro a un negocio existente.
+ * Agrega un nuevo miembro a un tenant existente.
+ * Escribe exclusivamente en la subcolección 'tenants/{tenantId}/members/{userId}'.
  */
 export async function addMemberToBusiness(
-  businessId: string, 
-  user: UserLookupResult, 
+  tenantId: string, 
+  user: { uid: string; email: string; displayName?: string }, 
   role: MemberRole
 ): Promise<void> {
   try {
-    const memberRef = doc(db, 'tenants', businessId, 'members', user.uid);
+    const memberRef = doc(db, 'tenants', tenantId, 'members', user.uid);
     
-    // Guardamos la membresía cumpliendo estrictamente con isValidMember en firestore.rules
-    // (userId, role, joinedAt) además de almacenar email y displayName para consultas rápidas
+    // Cumple con la regla isValidMember (userId, role, joinedAt)
     await setDoc(memberRef, {
       userId: user.uid,
       role,
       joinedAt: serverTimestamp(),
       email: user.email,
-      displayName: user.displayName,
+      displayName: user.displayName || user.email.split('@')[0],
     });
-
-    // Mantener sincronizado el arreglo auxiliar memberIds en tenants/{businessId} si existe
-    try {
-      await updateDoc(doc(db, 'tenants', businessId), {
-        memberIds: arrayUnion(user.uid),
-      });
-    } catch (e) {
-      console.warn("[memberService] No se pudo actualizar memberIds en el documento del negocio:", e);
-    }
   } catch (error: any) {
     console.error("[memberService] Error al agregar miembro:", error);
     throw error;
@@ -179,12 +118,37 @@ export async function addMemberToBusiness(
 }
 
 /**
- * Elimina a un miembro de un negocio validando las reglas de integridad de negocio.
+ * Actualiza el rol de un miembro con validación de invariante: no degradar al último admin.
+ */
+export async function updateMemberRole(
+  tenantId: string,
+  targetMember: TenantMember,
+  newRole: MemberRole,
+  allMembers: TenantMember[]
+): Promise<void> {
+  if (targetMember.role === newRole) return;
+
+  // Invariante: No degradar al último administrador
+  if (targetMember.role === 'admin' && newRole === 'member') {
+    const adminCount = allMembers.filter(m => m.role === 'admin').length;
+    if (adminCount <= 1) {
+      throw new Error("Debe existir al menos un administrador.");
+    }
+  }
+
+  const memberRef = doc(db, 'tenants', tenantId, 'members', targetMember.uid);
+  await updateDoc(memberRef, {
+    role: newRole,
+  });
+}
+
+/**
+ * Elimina a un miembro de un tenant validando las invariantes de administración.
  */
 export async function removeMemberFromBusiness(
-  businessId: string, 
-  memberToRemove: BusinessMember, 
-  allMembers: BusinessMember[],
+  tenantId: string, 
+  memberToRemove: TenantMember, 
+  allMembers: TenantMember[],
   currentUserId: string | null
 ): Promise<void> {
   // Invariante 1: Un administrador NO puede eliminarse a sí mismo
@@ -192,7 +156,7 @@ export async function removeMemberFromBusiness(
     throw new Error("Un administrador no puede eliminarse a sí mismo.");
   }
 
-  // Invariante 2: Siempre debe existir al menos un administrador en el negocio
+  // Invariante 2: Siempre debe existir al menos un administrador en el tenant
   if (memberToRemove.role === 'admin') {
     const adminCount = allMembers.filter(m => m.role === 'admin').length;
     if (adminCount <= 1) {
@@ -201,17 +165,7 @@ export async function removeMemberFromBusiness(
   }
 
   try {
-    // 1. Eliminar documento de la subcolección members
-    await deleteDoc(doc(db, 'tenants', businessId, 'members', memberToRemove.uid));
-
-    // 2. Remover del arreglo memberIds si está configurado
-    try {
-      await updateDoc(doc(db, 'tenants', businessId), {
-        memberIds: arrayRemove(memberToRemove.uid),
-      });
-    } catch (e) {
-      console.warn("[memberService] No se pudo actualizar memberIds al eliminar:", e);
-    }
+    await deleteDoc(doc(db, 'tenants', tenantId, 'members', memberToRemove.uid));
   } catch (error: any) {
     console.error("[memberService] Error al eliminar miembro:", error);
     throw error;
