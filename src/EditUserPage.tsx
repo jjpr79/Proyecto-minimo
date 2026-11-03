@@ -167,9 +167,18 @@ export default function EditUserPage({ userId, onBack }: { userId: string, onBac
           <input type="tel" value={user.phoneNumber || ''} onChange={(e) => setUser({ ...user, phoneNumber: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" />
         </div>
 
+        <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1">
+          <p className="font-semibold text-blue-950 flex items-center gap-1.5">
+            <span>💡 Google Workspace para Negocios:</span>
+          </p>
+          <p className="text-slate-600">
+            Las carpetas de Google Drive y hojas de cálculo para catálogos empresariales se configuran directamente y de manera visual en el menú <strong>Integraciones</strong> de tu negocio activo, sin necesidad de copiar identificadores manualmente.
+          </p>
+        </div>
+
         <div>
-          <label className="block text-xs font-semibold text-slate-600 mb-1">ID de carpeta de Google Drive</label>
-          <input type="text" value={user.googleDriveFolderId || ''} onChange={(e) => setUser({ ...user, googleDriveFolderId: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ej: 1ABC...xyz" />
+          <label className="block text-xs font-semibold text-slate-600 mb-1">ID de carpeta de Google Drive (Personal)</label>
+          <input type="text" value={user.googleDriveFolderId || ''} onChange={(e) => setUser({ ...user, googleDriveFolderId: e.target.value })} className="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ej: 1ABC...xyz (Opcional)" />
         </div>
 
         <button type="submit" disabled={saving} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg transition-colors shadow-sm disabled:opacity-60 flex items-center justify-center gap-2">

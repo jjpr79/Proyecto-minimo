@@ -65,6 +65,21 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["action", "performedBy", "timestamp"]
+    },
+    "tenantIntegration": {
+      "title": "Tenant Integration",
+      "description": "Integration configurations for tenant services such as Google Workspace",
+      "type": "object",
+      "properties": {
+        "connected": { "type": "boolean" },
+        "driveFolderId": { "type": "string" },
+        "driveFolderName": { "type": "string" },
+        "spreadsheetId": { "type": "string" },
+        "spreadsheetName": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["connected"]
     }
   },
   "firestore": {
@@ -79,6 +94,10 @@
     "/tenants/{tenantId}/members/{userId}": {
       "schema": "tenantMember",
       "description": "Tenant membership"
+    },
+    "/tenants/{tenantId}/integrations/{integrationId}": {
+      "schema": "tenantIntegration",
+      "description": "Tenant third-party integrations"
     },
     "/auditLogs/{logId}": {
       "schema": "auditLog",

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2, Users } from 'lucide-react';
+import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2, Users, Sparkles } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useEffect, useState } from 'react';
@@ -69,7 +69,7 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
             className="fixed top-0 right-0 h-full w-[90%] md:w-[400px] bg-white z-50 shadow-2xl flex flex-col"
           >
             {/* Encabezado */}
-            <div className="flex items-center justify-between p-[5px] border-b border-slate-100">
+            <div className="flex items-center justify-between p-[5px] border-b border-slate-100 shrink-0">
               <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                 <ArrowLeft className="w-6 h-6 text-slate-600" />
               </button>
@@ -79,79 +79,91 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
               </button>
             </div>
 
-            {/* Datos de Usuario */}
-            <div className="p-8 bg-slate-900 text-white rounded-b-3xl mb-6">
-              <div className="flex flex-col items-center gap-4">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Perfil" className="w-24 h-24 rounded-full border-4 border-slate-700" />
-                ) : (
-                  <div className="w-24 h-24 p-6 bg-slate-700 rounded-full text-slate-400">
-                    <UserIcon className="w-full h-full" />
+            {/* Área con barra de desplazamiento (Scrollable) */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {/* Datos de Usuario */}
+              <div className="p-8 bg-slate-900 text-white rounded-b-3xl mb-6">
+                <div className="flex flex-col items-center gap-4">
+                  {user.photoURL ? (
+                    <img src={user.photoURL} alt="Perfil" className="w-24 h-24 rounded-full border-4 border-slate-700" />
+                  ) : (
+                    <div className="w-24 h-24 p-6 bg-slate-700 rounded-full text-slate-400">
+                      <UserIcon className="w-full h-full" />
+                    </div>
+                  )}
+                  <div className="text-center">
+                    <p className="text-xl font-semibold">{user.displayName || 'Usuario'}</p>
+                    <p className="text-sm text-slate-400 mt-1 break-all">{user.email}</p>
+                    <p className="text-xs text-slate-500 mt-2 font-mono">ID: {user.uid.slice(0, 8)}...</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Menú adicional */}
+              <div className="px-6 py-2 pb-6 flex flex-col gap-2">
+                <button 
+                  onClick={() => { onNavigate('edit-profile'); onClose(); }} 
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
+                >
+                  <UserIcon className="w-4 h-4" />
+                  Editar Perfil
+                </button>
+                <button 
+                  onClick={() => { onNavigate('negocios'); onClose(); }} 
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
+                >
+                  <Building2 className="w-4 h-4" />
+                  Mis Negocios
+                </button>
+                {currentOrganization && (
+                  <>
+                    <button 
+                      onClick={() => { onNavigate('business-members'); onClose(); }} 
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
+                    >
+                      <Users className="w-4 h-4" />
+                      Miembros ({currentOrganization.name})
+                    </button>
+                    <button 
+                      onClick={() => { onNavigate('business-integrations'); onClose(); }} 
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
+                    >
+                      <Sparkles className="w-4 h-4 text-indigo-600" />
+                      Integraciones (Workspace)
+                    </button>
+                  </>
+                )}
+                {isAdmin && (
+                  <button onClick={() => { onNavigate('admin'); onClose(); }} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left">
+                    <Shield className="w-4 h-4" />
+                    Administración
+                  </button>
+                )}
+                {user.email === 'jjpr79@gmail.com' && !isAdmin && (
+                  <button
+                    onClick={activateAdmin}
+                    disabled={isActivating}
+                    className="flex items-center justify-between px-4 py-3 text-sm font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Zap className="w-4 h-4 text-amber-700" />
+                      {isActivating ? 'Activando...' : 'Activar Administrador'}
+                    </span>
+                    {isActivating && (
+                      <span className="w-4 h-4 border-2 border-amber-700 border-t-transparent rounded-full animate-spin" />
+                    )}
+                  </button>
+                )}
+                {statusMessage && (
+                  <div className={`p-3 rounded-lg text-xs font-medium ${statusMessage.isError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
+                    {statusMessage.text}
                   </div>
                 )}
-                <div className="text-center">
-                  <p className="text-xl font-semibold">{user.displayName || 'Usuario'}</p>
-                  <p className="text-sm text-slate-400 mt-1 break-all">{user.email}</p>
-                  <p className="text-xs text-slate-500 mt-2 font-mono">ID: {user.uid.slice(0, 8)}...</p>
-                </div>
               </div>
             </div>
 
-            {/* Menú adicional */}
-            <div className="px-6 py-2 flex flex-col gap-2">
-              <button 
-                onClick={() => { onNavigate('edit-profile'); onClose(); }} 
-                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
-              >
-                <UserIcon className="w-4 h-4" />
-                Editar Perfil
-              </button>
-              <button 
-                onClick={() => { onNavigate('negocios'); onClose(); }} 
-                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
-              >
-                <Building2 className="w-4 h-4" />
-                Mis Negocios
-              </button>
-              {currentOrganization && (
-                <button 
-                  onClick={() => { onNavigate('business-members'); onClose(); }} 
-                  className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
-                >
-                  <Users className="w-4 h-4" />
-                  Miembros ({currentOrganization.name})
-                </button>
-              )}
-              {isAdmin && (
-                <button onClick={() => { onNavigate('admin'); onClose(); }} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left">
-                  <Shield className="w-4 h-4" />
-                  Administración
-                </button>
-              )}
-              {user.email === 'jjpr79@gmail.com' && !isAdmin && (
-                <button
-                  onClick={activateAdmin}
-                  disabled={isActivating}
-                  className="flex items-center justify-between px-4 py-3 text-sm font-medium text-amber-900 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors disabled:opacity-60"
-                >
-                  <span className="flex items-center gap-3">
-                    <Zap className="w-4 h-4 text-amber-700" />
-                    {isActivating ? 'Activando...' : 'Activar Administrador'}
-                  </span>
-                  {isActivating && (
-                    <span className="w-4 h-4 border-2 border-amber-700 border-t-transparent rounded-full animate-spin" />
-                  )}
-                </button>
-              )}
-              {statusMessage && (
-                <div className={`p-3 rounded-lg text-xs font-medium ${statusMessage.isError ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`}>
-                  {statusMessage.text}
-                </div>
-              )}
-            </div>
-
-            {/* Pie de página (Sticky) */}
-            <div className="mt-auto p-6 border-t border-slate-100">
+            {/* Pie de página fijo con botón Cerrar sesión */}
+            <div className="shrink-0 p-6 border-t border-slate-100 bg-white">
               <button
                 onClick={() => signOut(auth)}
                 className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"

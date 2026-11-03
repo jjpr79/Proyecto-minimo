@@ -16,6 +16,8 @@ const AuthContext = createContext<AuthContextType>({ user: null, loading: true, 
 
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
+googleProvider.addScope('https://www.googleapis.com/auth/drive.metadata.readonly');
+googleProvider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly');
 googleProvider.setCustomParameters({
   prompt: 'select_account consent',
 });
@@ -30,15 +32,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[AUTH] onAuthStateChanged() - User detected:', user?.uid);
       try {
         if (user) {
-          // Fetch user data from Firestore to get the stored photoURL
+          // Fetch user data from Firestore to get stored profile
           const userDoc = await getDoc(doc(db, 'users', user.uid));
-          console.log('[AUTH] After getDoc(users/{uid}):', userDoc.exists());
-          const userData = userDoc.exists() ? userDoc.data() : {};
+          let userData = userDoc.exists() ? userDoc.data() : null;
+
+          // Si el perfil aún no existe en Firestore, inicializarlo para permitir búsquedas por email
+          if (!userDoc.exists() && user.email) {
+            const initialProfile = {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || user.email.split('@')[0],
+              photoURL: user.photoURL || '',
+              createdAt: serverTimestamp(),
+            };
+            try {
+              await setDoc(doc(db, 'users', user.uid), initialProfile, { merge: true });
+              userData = initialProfile;
+            } catch (initErr) {
+              console.warn('[AUTH] Inicialización diferida de usuario en Firestore:', initErr);
+            }
+          }
 
           // Merge with auth user
           const mergedUser = {
             ...user,
-            photoURL: userData.photoURL || user.photoURL,
+            photoURL: userData?.photoURL || user.photoURL,
           } as User;
 
           setUser(mergedUser);

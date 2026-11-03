@@ -44,10 +44,15 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
       setUserOrganizations(orgs);
       
       if (orgs.length > 0) {
+        const savedTenantId = typeof window !== 'undefined' ? localStorage.getItem('saas_active_tenant_id') : null;
         setCurrentOrganization((prev) => {
-          if (!prev) return orgs[0];
-          const exists = orgs.find(o => o.id === prev.id);
-          return exists || orgs[0];
+          if (prev && orgs.some(o => o.id === prev.id)) {
+            return orgs.find(o => o.id === prev.id)!;
+          }
+          if (savedTenantId && orgs.some(o => o.id === savedTenantId)) {
+            return orgs.find(o => o.id === savedTenantId)!;
+          }
+          return orgs[0];
         });
       } else {
         setCurrentOrganization(null);
@@ -94,12 +99,19 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  const selectOrganization = (org: TenantWithRole) => {
+    setCurrentOrganization(org);
+    if (typeof window !== 'undefined' && org?.id) {
+      localStorage.setItem('saas_active_tenant_id', org.id);
+    }
+  };
+
   return (
     <OrganizationContext.Provider value={{ 
       currentOrganization, 
       userOrganizations, 
       isLoadingOrganization, 
-      setCurrentOrganization, 
+      setCurrentOrganization: selectOrganization, 
       createOrg,
       deleteOrg,
       refreshOrganizations

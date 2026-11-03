@@ -9,12 +9,13 @@ import BusinessesPage from './components/BusinessesPage';
 import Layout from './components/Layout';
 import ImageUploader from './components/ImageUploader';
 import MembersPage from './pages/business/MembersPage';
-import { Building2, Users } from 'lucide-react';
+import IntegrationsPage from './pages/business/IntegrationsPage';
+import { Building2, Users, Sparkles } from 'lucide-react';
 
 export default function App() {
   const { user, loading } = useAuth();
   const { currentOrganization, userOrganizations, isLoadingOrganization, createOrg } = useOrganization();
-  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'admin-users' | 'admin-edit-user' | 'admin-historial' | 'edit-profile' | 'negocios' | 'business-members'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'admin' | 'admin-users' | 'admin-edit-user' | 'admin-historial' | 'edit-profile' | 'negocios' | 'business-members' | 'business-integrations'>('home');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const [orgName, setOrgName] = useState('');
@@ -34,7 +35,8 @@ export default function App() {
       'admin-historial': '/admin/historial',
       'edit-profile': '/perfil/editar',
       'negocios': '/negocios',
-      'business-members': currentOrganization ? `/business/${currentOrganization.id}/members` : '/negocios'
+      'business-members': currentOrganization ? `/business/${currentOrganization.id}/members` : '/negocios',
+      'business-integrations': currentOrganization ? `/business/${currentOrganization.id}/integraciones` : '/negocios'
     };
     const newPath = routeMap[currentPage] || '/';
     if (window.location.pathname !== newPath) {
@@ -86,6 +88,8 @@ export default function App() {
         return <BusinessesPage onBack={() => setCurrentPage('home')} onNavigate={handleNavigate} />;
       case 'business-members':
         return <MembersPage onBack={() => setCurrentPage('home')} onNavigate={handleNavigate} />;
+      case 'business-integrations':
+        return <IntegrationsPage onBack={() => setCurrentPage('home')} onNavigate={handleNavigate} />;
       default:
         if (user && !currentOrganization && userOrganizations.length === 0) {
           return (
@@ -152,14 +156,24 @@ export default function App() {
                 <p className="text-sm font-medium text-slate-500">
                   Negocio: <span className="text-slate-800 font-semibold">{currentOrganization.name}</span>
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage('business-members')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  <span>Gestionar Miembros</span>
-                </button>
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage('business-members')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Miembros</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage('business-integrations')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Integraciones</span>
+                  </button>
+                </div>
               </div>
             )}
             {user && <ImageUploader />}

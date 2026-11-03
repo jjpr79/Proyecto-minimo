@@ -47,3 +47,20 @@ export interface AuditLogEntry {
   target?: string;
   timestamp: any;
 }
+
+export interface GoogleWorkspaceIntegration {
+  connected: boolean;
+  driveFolderId?: string;
+  driveFolderName?: string;
+  spreadsheetId?: string;
+  spreadsheetName?: string;
+  updatedAt?: any;
+  updatedBy?: string;
+}
+
+export interface GoogleDriveItem {
+  id: string;
+  name: string;
+  mimeType?: string;
+  iconLink?: string;
+}
