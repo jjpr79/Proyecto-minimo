@@ -16,7 +16,6 @@ import {
   RefreshCw, 
   Folder, 
   FileSpreadsheet, 
-  Sparkles, 
   Building2, 
   ExternalLink 
 } from 'lucide-react';
@@ -165,8 +164,6 @@ export default function IntegrationsPage({ onBack, onNavigate }: IntegrationsPag
     }
   };
 
-  const isConfiguredForCatalog = Boolean(config?.driveFolderId && config?.spreadsheetId && driveValidation?.valid !== false && sheetsValidation?.valid !== false);
-
   return (
     <div className="p-6 max-w-5xl mx-auto w-full">
       {/* Botón Volver */}
@@ -213,51 +210,6 @@ export default function IntegrationsPage({ onBack, onNavigate }: IntegrationsPag
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Banner de Próximo Producto: Constructor de Catálogos */}
-          <div className={`p-5 rounded-2xl border transition-all ${
-            isConfiguredForCatalog 
-              ? 'bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-blue-200' 
-              : 'bg-slate-50 border-slate-200'
-          }`}>
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div className="flex-grow min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Fuente de Datos para el Constructor de Catálogos
-                  </h3>
-                  {isConfiguredForCatalog && (
-                    <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                      Listo para sincronizar
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  El próximo catálogo del negocio se generará automáticamente combinando los datos y precios de tu hoja de cálculo con las fotos de productos de tu carpeta de Google Drive.
-                </p>
-
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs font-medium text-slate-700">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">📁</span>
-                    <span>Fotos:</span>
-                    <span className="font-semibold text-slate-900">
-                      {config?.driveFolderName || 'Pendiente de configurar'}
-                    </span>
-                  </div>
-                  <span className="text-slate-300">•</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">📊</span>
-                    <span>Datos:</span>
-                    <span className="font-semibold text-slate-900">
-                      {config?.spreadsheetName || 'Pendiente de configurar'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Tarjetas de Integración */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

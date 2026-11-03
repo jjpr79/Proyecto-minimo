@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2, Users, Sparkles } from 'lucide-react';
+import { ArrowLeft, X, LogOut, User as UserIcon, Shield, Zap, Building2, Sparkles, ChevronDown } from 'lucide-react';
 import { User, signOut } from 'firebase/auth';
 import { auth } from './firebase';
 import { useEffect, useState } from 'react';
@@ -14,7 +14,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarProps) {
-  const { currentOrganization } = useOrganization();
+  const { currentOrganization, userOrganizations, setCurrentOrganization } = useOrganization();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; isError: boolean } | null>(null);
@@ -91,10 +91,53 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
                       <UserIcon className="w-full h-full" />
                     </div>
                   )}
-                  <div className="text-center">
+                  <div className="text-center w-full">
                     <p className="text-xl font-semibold">{user.displayName || 'Usuario'}</p>
                     <p className="text-sm text-slate-400 mt-1 break-all">{user.email}</p>
-                    <p className="text-xs text-slate-500 mt-2 font-mono">ID: {user.uid.slice(0, 8)}...</p>
+                    
+                    {/* Selector de Negocio */}
+                    <div className="w-full mt-4">
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <select
+                          value={currentOrganization?.id || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '__add_org__') {
+                              onNavigate('negocios');
+                              onClose();
+                            } else {
+                              const selected = userOrganizations.find((o) => o.id === val);
+                              if (selected) {
+                                setCurrentOrganization(selected);
+                              }
+                            }
+                          }}
+                          className="w-full pl-9 pr-8 py-2 text-xs font-medium text-slate-200 bg-slate-800 border border-slate-700 rounded-lg hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer transition-colors"
+                          aria-label="Seleccionar negocio"
+                        >
+                          {userOrganizations.length > 0 ? (
+                            userOrganizations.map((org) => (
+                              <option key={org.id} value={org.id} className="bg-slate-900 text-slate-200 py-1">
+                                {org.name} {currentOrganization?.id === org.id ? '(Actual)' : ''}
+                              </option>
+                            ))
+                          ) : (
+                            <option value="" disabled className="bg-slate-900 text-slate-400">
+                              Sin negocios
+                            </option>
+                          )}
+                          <option value="__add_org__" className="bg-slate-900 text-blue-400 font-semibold py-1">
+                            + Agregar negocio
+                          </option>
+                        </select>
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                          <ChevronDown className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -116,22 +159,13 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
                   Mis Negocios
                 </button>
                 {currentOrganization && (
-                  <>
-                    <button 
-                      onClick={() => { onNavigate('business-members'); onClose(); }} 
-                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
-                    >
-                      <Users className="w-4 h-4" />
-                      Miembros ({currentOrganization.name})
-                    </button>
-                    <button 
-                      onClick={() => { onNavigate('business-integrations'); onClose(); }} 
-                      className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
-                    >
-                      <Sparkles className="w-4 h-4 text-indigo-600" />
-                      Integraciones (Workspace)
-                    </button>
-                  </>
+                  <button 
+                    onClick={() => { onNavigate('business-integrations'); onClose(); }} 
+                    className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left"
+                  >
+                    <Sparkles className="w-4 h-4 text-indigo-600" />
+                    Integraciones (Workspace)
+                  </button>
                 )}
                 {isAdmin && (
                   <button onClick={() => { onNavigate('admin'); onClose(); }} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-900 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors text-left">
@@ -163,12 +197,12 @@ export default function Sidebar({ isOpen, onClose, user, onNavigate }: SidebarPr
             </div>
 
             {/* Pie de página fijo con botón Cerrar sesión */}
-            <div className="shrink-0 p-6 border-t border-slate-100 bg-white">
+            <div className="shrink-0 p-[5px] border-t border-slate-100 bg-white">
               <button
                 onClick={() => signOut(auth)}
-                className="w-full flex items-center justify-center gap-3 px-4 py-3 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-3.5 h-3.5" />
                 Cerrar sesión
               </button>
             </div>

@@ -64,3 +64,8 @@ export interface GoogleDriveItem {
   mimeType?: string;
   iconLink?: string;
 }
+
+export interface ListDriveItemsResult {
+  items: GoogleDriveItem[];
+  nextPageToken?: string;
+}
