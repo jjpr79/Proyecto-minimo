@@ -53,6 +53,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
 
+          // Sincronizar directorio público para invitaciones por email (usersByEmail)
+          if (user.email) {
+            const emailKey = user.email.trim().toLowerCase();
+            setDoc(doc(db, 'usersByEmail', emailKey), {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName || user.email.split('@')[0],
+              photoURL: user.photoURL || '',
+              updatedAt: serverTimestamp(),
+            }, { merge: true }).catch((dirErr) => {
+              console.warn('[AUTH] Error sincronizando directorio usersByEmail:', dirErr);
+            });
+          }
+
           // Merge with auth user
           const mergedUser = {
             ...user,

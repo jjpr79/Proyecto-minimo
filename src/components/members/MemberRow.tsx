@@ -6,6 +6,7 @@ interface MemberRowProps {
   isCurrentUser: boolean;
   canManage: boolean;
   adminCount: number;
+  isCreator?: boolean;
   onRemove: (member: TenantMember) => void;
 }
 
@@ -14,13 +15,15 @@ export default function MemberRow({
   isCurrentUser,
   canManage,
   adminCount,
+  isCreator,
   onRemove,
 }: MemberRowProps) {
   const isSelfAdmin = isCurrentUser && member.role === 'admin';
   const isOnlyAdmin = member.role === 'admin' && adminCount <= 1;
-  const isDeleteDisabled = isSelfAdmin || isOnlyAdmin;
+  const isDeleteDisabled = isSelfAdmin || isOnlyAdmin || isCreator;
 
   const getDeleteDisabledTooltip = () => {
+    if (isCreator) return "El propietario y fundador de la organización no puede ser eliminado.";
     if (isSelfAdmin) return "Un administrador no puede eliminarse a sí mismo.";
     if (isOnlyAdmin) return "Debe existir al menos un administrador.";
     return "Eliminar miembro";
@@ -58,7 +61,11 @@ export default function MemberRow({
 
       {/* Rol */}
       <td className="py-3.5 px-4 text-sm">
-        {member.role === 'admin' ? (
+        {isCreator ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+            Propietario
+          </span>
+        ) : member.role === 'admin' ? (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
             Admin
           </span>

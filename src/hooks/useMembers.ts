@@ -9,7 +9,7 @@ import {
   updateMemberRole
 } from '../services/memberService';
 
-export function useMembers(tenantId: string | null | undefined) {
+export function useMembers(tenantId: string | null | undefined, creatorId?: string) {
   const { user } = useAuth();
   const [members, setMembers] = useState<TenantMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,20 +87,20 @@ export function useMembers(tenantId: string | null | undefined) {
   };
 
   /**
-   * Actualiza el rol de un miembro respetando la invariante del último administrador.
+   * Actualiza el rol de un miembro respetando la invariante del último administrador y del propietario.
    */
   const changeMemberRole = async (member: TenantMember, newRole: MemberRole): Promise<void> => {
     if (!tenantId) throw new Error("No hay un negocio seleccionado.");
-    await updateMemberRole(tenantId, member, newRole, members);
+    await updateMemberRole(tenantId, member, newRole, members, creatorId);
     await fetchMembers();
   };
 
   /**
-   * Elimina un miembro aplicando las invariantes de administración.
+   * Elimina un miembro aplicando las invariantes de administración y protección al creador.
    */
   const removeMember = async (memberToRemove: TenantMember): Promise<void> => {
     if (!tenantId) throw new Error("No hay un negocio seleccionado.");
-    await removeMemberFromBusiness(tenantId, memberToRemove, members, user?.uid || null);
+    await removeMemberFromBusiness(tenantId, memberToRemove, members, user?.uid || null, creatorId);
     await fetchMembers();
   };
 

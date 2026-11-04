@@ -26,7 +26,7 @@ export default function MembersPage({ onBack, onNavigate }: MembersPageProps) {
     isCurrentMemberAdmin,
     addMember,
     removeMember,
-  } = useMembers(currentOrganization?.id);
+  } = useMembers(currentOrganization?.id, currentOrganization?.createdBy);
 
   // Si no hay un negocio activo seleccionado
   if (!currentOrganization) {
@@ -137,11 +137,13 @@ export default function MembersPage({ onBack, onNavigate }: MembersPageProps) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
           {members.map((member) => {
             const isCurrentUser = user?.uid === member.uid;
+            const isCreator = currentOrganization?.createdBy === member.uid;
             const isSelfAdmin = isCurrentUser && member.role === 'admin';
             const isOnlyAdmin = member.role === 'admin' && adminCount <= 1;
-            const isDeleteDisabled = isSelfAdmin || isOnlyAdmin;
+            const isDeleteDisabled = isSelfAdmin || isOnlyAdmin || isCreator;
 
             const getDeleteDisabledTooltip = () => {
+              if (isCreator) return "El propietario y fundador del negocio no puede ser eliminado.";
               if (isSelfAdmin) return "Un administrador no puede eliminarse a sí mismo.";
               if (isOnlyAdmin) return "Debe existir al menos un administrador.";
               return "Eliminar miembro";
@@ -155,8 +157,14 @@ export default function MembersPage({ onBack, onNavigate }: MembersPageProps) {
                 {/* Parte superior de la tarjeta */}
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className={`p-2 rounded-lg ${member.role === 'admin' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-700'}`}>
-                      {member.role === 'admin' ? (
+                    <div className={`p-2 rounded-lg ${
+                      isCreator 
+                        ? 'bg-purple-50 text-purple-600' 
+                        : member.role === 'admin' 
+                        ? 'bg-blue-50 text-blue-600' 
+                        : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {isCreator || member.role === 'admin' ? (
                         <ShieldCheck className="w-4 h-4" />
                       ) : (
                         <UserIcon className="w-4 h-4" />
@@ -164,12 +172,14 @@ export default function MembersPage({ onBack, onNavigate }: MembersPageProps) {
                     </div>
                     <span
                       className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                        member.role === 'admin'
+                        isCreator
+                          ? 'text-purple-700 bg-purple-50 border border-purple-200'
+                          : member.role === 'admin'
                           ? 'text-blue-700 bg-blue-100'
                           : 'text-slate-600 bg-slate-100'
                       }`}
                     >
-                      {member.role === 'admin' ? 'Admin' : 'Miembro'}
+                      {isCreator ? 'Propietario' : member.role === 'admin' ? 'Admin' : 'Miembro'}
                     </span>
                   </div>
 
@@ -197,7 +207,7 @@ export default function MembersPage({ onBack, onNavigate }: MembersPageProps) {
                 {/* Pie de la tarjeta */}
                 <div className="pt-2.5 mt-2 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-[10px] text-slate-400 capitalize">
-                    {member.role === 'admin' ? 'Gestor' : 'Colaborador'}
+                    {isCreator ? 'Propietario' : member.role === 'admin' ? 'Gestor' : 'Colaborador'}
                   </span>
 
                   {canManageMembers && (

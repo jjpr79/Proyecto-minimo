@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { createTenant, getUserTenants, deleteTenant } from './services/tenantService';
 import { logAuditEvent } from './services/auditService';
+import { ensureCurrentMemberProfile } from './services/memberService';
 import { TenantWithRole } from './types';
 
 interface OrganizationContextType {
@@ -70,14 +71,22 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
     refreshOrganizations();
   }, [user?.uid]);
 
+  // Asegura proactivamente la integridad de los datos de membresía del usuario activo en el negocio seleccionado
+  useEffect(() => {
+    if (user && currentOrganization?.id) {
+      ensureCurrentMemberProfile(currentOrganization.id, user).catch(() => {});
+    }
+  }, [user?.uid, currentOrganization?.id]);
+
   const createOrg = async (name: string) => {
     if (!user || !name.trim()) return;
     try {
+      const fallbackDisplayName = user.displayName || (user.email ? user.email.split('@')[0] : undefined);
       const tenantId = await createTenant(
         name.trim(), 
         user.uid, 
         user.email || undefined, 
-        user.displayName || undefined
+        fallbackDisplayName
       );
       await logAuditEvent(`Negocio creado: ${name.trim()}`, user.email || user.uid, tenantId);
       await refreshOrganizations();

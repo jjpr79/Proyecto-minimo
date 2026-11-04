@@ -39,15 +39,28 @@ service cloud.firestore {
       allow delete: if isAdmin() && userId != request.auth.uid;
     }
 
+    match /slugs/{slug} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create: if isSignedIn();
+    }
+
+    match /usersByEmail/{emailKey} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow write: if isSignedIn() && (request.auth.uid == request.resource.data.uid || isAdmin());
+    }
+
     match /users/{userId} {
-      allow list, read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow get, list: if isSignedIn();
       allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     match /tenants/{tenantId} {
-      // Fuente única de verdad: membresía activa en la subcolección o administrador global
+      // Fuente única de verdad: membresía activa en la subcolección, ser el creador legítimo, o administrador global
       allow read: if isSignedIn() && (
         isTenantMember(tenantId) || 
+        resource.data.createdBy == request.auth.uid ||
         isAdmin()
       );
       allow create: if isSignedIn() && 
@@ -79,8 +92,11 @@ service cloud.firestore {
             )
           )
         );
+        // Protección del Propietario: ningún admin puede eliminar al creador del negocio
         allow delete: if isAdmin() || (
-          getMemberRole(tenantId) == 'admin' && request.auth.uid != userId
+          getMemberRole(tenantId) == 'admin' && 
+          request.auth.uid != userId &&
+          get(/databases/$(database)/documents/tenants/$(tenantId)).data.createdBy != userId
         );
       }
 

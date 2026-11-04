@@ -8,6 +8,7 @@ export type MemberRole = 'admin' | 'member';
 export interface Tenant {
   id: string;
   name: string;
+  slug?: string;
   createdBy: string;
   createdAt: any;
 }

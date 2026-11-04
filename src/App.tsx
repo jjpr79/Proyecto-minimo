@@ -27,6 +27,40 @@ export default function App() {
   };
 
   useEffect(() => {
+    // 1. Manejar el estado inicial de la URL
+    const handleUrlChange = () => {
+      const path = window.location.pathname;
+      if (path === '/') {
+        setCurrentPage('home');
+      } else if (path.startsWith('/negocios/')) {
+        const parts = path.split('/');
+        const slug = parts[2];
+        // Aquí necesitaríamos buscar el tenant por slug
+        // Por ahora, asumiremos que se maneja internamente en la página
+        if (parts[3] === 'miembros') {
+          setCurrentPage('business-members');
+        } else if (parts[3] === 'integraciones') {
+          setCurrentPage('business-integrations');
+        } else {
+          setCurrentPage('negocios');
+        }
+      } else if (path.startsWith('/business/')) {
+        // Redirección antigua
+        const parts = path.split('/');
+        const tenantId = parts[2];
+        // En un futuro, buscar el tenant por ID y redirigir a /negocios/:slug
+        setCurrentPage('business-members'); 
+      } else {
+        // Otros casos...
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    handleUrlChange(); // Ejecutar al cargar
+    return () => window.removeEventListener('popstate', handleUrlChange);
+  }, []);
+
+  useEffect(() => {
     const routeMap: Record<string, string> = {
       'home': '/',
       'admin': '/admin',
@@ -35,14 +69,14 @@ export default function App() {
       'admin-historial': '/admin/historial',
       'edit-profile': '/perfil/editar',
       'negocios': '/negocios',
-      'business-members': currentOrganization ? `/business/${currentOrganization.id}/members` : '/negocios',
-      'business-integrations': currentOrganization ? `/business/${currentOrganization.id}/integraciones` : '/negocios'
+      'business-members': currentOrganization ? `/negocios/${currentOrganization.slug || currentOrganization.id}/miembros` : '/negocios',
+      'business-integrations': currentOrganization ? `/negocios/${currentOrganization.slug || currentOrganization.id}/integraciones` : '/negocios'
     };
     const newPath = routeMap[currentPage] || '/';
     if (window.location.pathname !== newPath) {
       window.history.pushState(null, '', newPath);
     }
-  }, [currentPage, currentOrganization?.id]);
+  }, [currentPage, currentOrganization]);
 
   if (loading || (user && isLoadingOrganization)) {
     return (

@@ -1,0 +1,6 @@
+{
+  "summary": "Implementation plan for migrating from businessId to slug-based URLs for organizations while maintaining backward compatibility.",
+  "updatedAt": "2026-11-03T22:22:51.122956665Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

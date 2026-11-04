@@ -54,6 +54,16 @@ export async function getBusinessMembers(tenantId: string): Promise<TenantMember
         if (auth.currentUser && auth.currentUser.uid === uid) {
           email = email || auth.currentUser.email || '';
           displayName = displayName || auth.currentUser.displayName || (email ? email.split('@')[0] : 'Tú');
+
+          // Auto-reparación transparente del registro propio en Firestore
+          if (email || displayName) {
+            updateDoc(doc(db, 'tenants', tenantId, 'members', uid), {
+              email: email || '',
+              displayName: displayName || (email ? email.split('@')[0] : 'Usuario'),
+            }).catch((err) => {
+              console.warn('[memberService] Aviso: no se pudo auto-reparar membresía en Firestore:', err);
+            });
+          }
         } else {
           try {
             const userSnap = await getDoc(doc(db, 'users', uid));
@@ -118,17 +128,23 @@ export async function addMemberToBusiness(
 }
 
 /**
- * Actualiza el rol de un miembro con validación de invariante: no degradar al último admin.
+ * Actualiza el rol de un miembro con validación de invariante: no degradar al último admin ni al propietario.
  */
 export async function updateMemberRole(
   tenantId: string,
   targetMember: TenantMember,
   newRole: MemberRole,
-  allMembers: TenantMember[]
+  allMembers: TenantMember[],
+  creatorId?: string
 ): Promise<void> {
   if (targetMember.role === newRole) return;
 
-  // Invariante: No degradar al último administrador
+  // Invariante 0: El creador/propietario del negocio siempre conserva rol de administrador
+  if (creatorId && targetMember.uid === creatorId && newRole !== 'admin') {
+    throw new Error("El propietario del negocio siempre debe conservar el rol de administrador.");
+  }
+
+  // Invariante 1: No degradar al último administrador
   if (targetMember.role === 'admin' && newRole === 'member') {
     const adminCount = allMembers.filter(m => m.role === 'admin').length;
     if (adminCount <= 1) {
@@ -143,14 +159,20 @@ export async function updateMemberRole(
 }
 
 /**
- * Elimina a un miembro de un tenant validando las invariantes de administración.
+ * Elimina a un miembro de un tenant validando las invariantes de administración y propiedad.
  */
 export async function removeMemberFromBusiness(
   tenantId: string, 
   memberToRemove: TenantMember, 
   allMembers: TenantMember[],
-  currentUserId: string | null
+  currentUserId: string | null,
+  creatorId?: string
 ): Promise<void> {
+  // Invariante 0: No es posible eliminar al propietario y creador del negocio
+  if (creatorId && memberToRemove.uid === creatorId) {
+    throw new Error("No es posible eliminar al propietario y creador del negocio.");
+  }
+
   // Invariante 1: Un administrador NO puede eliminarse a sí mismo
   if (memberToRemove.role === 'admin' && memberToRemove.uid === currentUserId) {
     throw new Error("Un administrador no puede eliminarse a sí mismo.");
@@ -171,3 +193,39 @@ export async function removeMemberFromBusiness(
     throw error;
   }
 }
+
+/**
+ * Asegura que los datos del miembro actual estén persistidos y completos en la subcolección de membresía.
+ * Si faltan email o displayName en Firestore, los sincroniza silenciosamente (Self-healing).
+ */
+export async function ensureCurrentMemberProfile(
+  tenantId: string, 
+  currentUser: { uid: string; email?: string | null; displayName?: string | null }
+): Promise<void> {
+  if (!currentUser?.uid || !currentUser?.email) return;
+
+  try {
+    const memberRef = doc(db, 'tenants', tenantId, 'members', currentUser.uid);
+    const memberSnap = await getDoc(memberRef);
+
+    if (memberSnap.exists()) {
+      const data = memberSnap.data();
+      const needsEmail = !data.email || data.email.trim() === '';
+      const needsDisplayName = !data.displayName || data.displayName.trim() === '';
+
+      if (needsEmail || needsDisplayName) {
+        const resolvedEmail = data.email || currentUser.email;
+        const resolvedDisplayName = data.displayName || currentUser.displayName || resolvedEmail.split('@')[0];
+        
+        await updateDoc(memberRef, {
+          email: resolvedEmail,
+          displayName: resolvedDisplayName,
+        });
+      }
+    }
+  } catch (err) {
+    // Si falla por permisos o red, se registra warning sin interrumpir la UX
+    console.warn("[memberService] Aviso: no se pudo auto-reparar la membresía del usuario:", err);
+  }
+}
+
