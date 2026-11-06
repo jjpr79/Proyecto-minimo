@@ -49,32 +49,11 @@ export async function getBusinessMembers(tenantId: string): Promise<TenantMember
       let email = data.email || '';
       let displayName = data.displayName || '';
 
-      // Si el documento de membresía no tiene email o displayName, intentar resolver desde users/{uid}
+      // Si en documentos antiguos faltaran email o displayName, fallback seguro en memoria
       if (!email || !displayName) {
         if (auth.currentUser && auth.currentUser.uid === uid) {
           email = email || auth.currentUser.email || '';
           displayName = displayName || auth.currentUser.displayName || (email ? email.split('@')[0] : 'Tú');
-
-          // Auto-reparación transparente del registro propio en Firestore
-          if (email || displayName) {
-            updateDoc(doc(db, 'tenants', tenantId, 'members', uid), {
-              email: email || '',
-              displayName: displayName || (email ? email.split('@')[0] : 'Usuario'),
-            }).catch((err) => {
-              console.warn('[memberService] Aviso: no se pudo auto-reparar membresía en Firestore:', err);
-            });
-          }
-        } else {
-          try {
-            const userSnap = await getDoc(doc(db, 'users', uid));
-            if (userSnap.exists()) {
-              const uData = userSnap.data();
-              email = email || uData.email || '';
-              displayName = displayName || uData.displayName || uData.username || '';
-            }
-          } catch {
-            // Manejo de reglas restrictivas
-          }
         }
       }
 
@@ -191,41 +170,6 @@ export async function removeMemberFromBusiness(
   } catch (error: any) {
     console.error("[memberService] Error al eliminar miembro:", error);
     throw error;
-  }
-}
-
-/**
- * Asegura que los datos del miembro actual estén persistidos y completos en la subcolección de membresía.
- * Si faltan email o displayName en Firestore, los sincroniza silenciosamente (Self-healing).
- */
-export async function ensureCurrentMemberProfile(
-  tenantId: string, 
-  currentUser: { uid: string; email?: string | null; displayName?: string | null }
-): Promise<void> {
-  if (!currentUser?.uid || !currentUser?.email) return;
-
-  try {
-    const memberRef = doc(db, 'tenants', tenantId, 'members', currentUser.uid);
-    const memberSnap = await getDoc(memberRef);
-
-    if (memberSnap.exists()) {
-      const data = memberSnap.data();
-      const needsEmail = !data.email || data.email.trim() === '';
-      const needsDisplayName = !data.displayName || data.displayName.trim() === '';
-
-      if (needsEmail || needsDisplayName) {
-        const resolvedEmail = data.email || currentUser.email;
-        const resolvedDisplayName = data.displayName || currentUser.displayName || resolvedEmail.split('@')[0];
-        
-        await updateDoc(memberRef, {
-          email: resolvedEmail,
-          displayName: resolvedDisplayName,
-        });
-      }
-    }
-  } catch (err) {
-    // Si falla por permisos o red, se registra warning sin interrumpir la UX
-    console.warn("[memberService] Aviso: no se pudo auto-reparar la membresía del usuario:", err);
   }
 }
 

@@ -99,66 +99,35 @@ export async function findUserByEmail(email: string): Promise<UserProfile | null
   if (!normalized) return null;
 
   try {
-    // 1. Búsqueda directa O(1) en el directorio 'usersByEmail'
-    try {
-      const directorySnap = await getDoc(doc(db, 'usersByEmail', normalized));
-      if (directorySnap.exists()) {
-        const data = directorySnap.data();
-        return {
-          uid: data.uid || directorySnap.id,
-          email: data.email || normalized,
-          displayName: data.displayName || normalized.split('@')[0],
-          photoURL: data.photoURL,
-        } as UserProfile;
-      }
-    } catch (dirErr) {
-      console.warn("[userService] Aviso en lectura de usersByEmail:", dirErr);
-    }
-
-    // 2. Consulta autorizada en la colección 'users'
-    const q1 = query(collection(db, 'users'), where('email', '==', normalized));
-    const snap1 = await getDocs(q1);
-
-    if (!snap1.empty) {
-      const docSnap = snap1.docs[0];
-      const data = docSnap.data();
-      const profile: UserProfile = {
-        uid: docSnap.id,
+    // 1. Búsqueda O(1) directa en el directorio seguro 'usersByEmail'
+    const directorySnap = await getDoc(doc(db, 'usersByEmail', normalized));
+    if (directorySnap.exists()) {
+      const data = directorySnap.data();
+      return {
+        uid: data.uid || directorySnap.id,
         email: data.email || normalized,
-        displayName: data.displayName || data.username || normalized.split('@')[0],
+        displayName: data.displayName || normalized.split('@')[0],
         photoURL: data.photoURL,
-      };
-
-      // Auto-poblar silenciosamente usersByEmail para optimizaciones futuras
-      try {
-        setDoc(doc(db, 'usersByEmail', normalized), {
-          uid: profile.uid,
-          email: profile.email,
-          displayName: profile.displayName,
-          photoURL: profile.photoURL || '',
-          updatedAt: serverTimestamp(),
-        }, { merge: true }).catch(() => {});
-      } catch {
-        // Silencioso
-      }
-
-      return profile;
+      } as UserProfile;
     }
 
-    // 3. Consulta secundaria por si el correo fue guardado con mayúsculas/minúsculas originales
-    if (email.trim() !== normalized) {
-      const q2 = query(collection(db, 'users'), where('email', '==', email.trim()));
-      const snap2 = await getDocs(q2);
-      if (!snap2.empty) {
-        const docSnap = snap2.docs[0];
+    // 2. Fallback controlado a 'users' (solo para administradores globales autorizados)
+    try {
+      const q1 = query(collection(db, 'users'), where('email', '==', normalized));
+      const snap1 = await getDocs(q1);
+
+      if (!snap1.empty) {
+        const docSnap = snap1.docs[0];
         const data = docSnap.data();
         return {
           uid: docSnap.id,
-          email: data.email || email.trim(),
-          displayName: data.displayName || data.username || email.trim().split('@')[0],
+          email: data.email || normalized,
+          displayName: data.displayName || data.username || normalized.split('@')[0],
           photoURL: data.photoURL,
         } as UserProfile;
       }
+    } catch {
+      // Ignorar de forma segura si el usuario actual no posee rol de admin global
     }
 
     return null;

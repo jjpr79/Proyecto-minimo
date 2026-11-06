@@ -2,7 +2,6 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { createTenant, getUserTenants, deleteTenant } from './services/tenantService';
 import { logAuditEvent } from './services/auditService';
-import { ensureCurrentMemberProfile } from './services/memberService';
 import { TenantWithRole } from './types';
 
 interface OrganizationContextType {
@@ -70,13 +69,6 @@ export function OrganizationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     refreshOrganizations();
   }, [user?.uid]);
-
-  // Asegura proactivamente la integridad de los datos de membresía del usuario activo en el negocio seleccionado
-  useEffect(() => {
-    if (user && currentOrganization?.id) {
-      ensureCurrentMemberProfile(currentOrganization.id, user).catch(() => {});
-    }
-  }, [user?.uid, currentOrganization?.id]);
 
   const createOrg = async (name: string) => {
     if (!user || !name.trim()) return;

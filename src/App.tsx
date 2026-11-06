@@ -34,24 +34,21 @@ export default function App() {
         setCurrentPage('home');
       } else if (path.startsWith('/negocios/')) {
         const parts = path.split('/');
-        const slug = parts[2];
-        // Aquí necesitaríamos buscar el tenant por slug
-        // Por ahora, asumiremos que se maneja internamente en la página
-        if (parts[3] === 'miembros') {
+        // Rutas internas canónicas: /negocios/{tenantId}/miembros | /negocios/{tenantId}/integraciones
+        if (parts[3] === 'miembros' || parts[3] === 'members') {
           setCurrentPage('business-members');
-        } else if (parts[3] === 'integraciones') {
+        } else if (parts[3] === 'integraciones' || parts[3] === 'integrations') {
           setCurrentPage('business-integrations');
         } else {
           setCurrentPage('negocios');
         }
       } else if (path.startsWith('/business/')) {
-        // Redirección antigua
         const parts = path.split('/');
-        const tenantId = parts[2];
-        // En un futuro, buscar el tenant por ID y redirigir a /negocios/:slug
-        setCurrentPage('business-members'); 
-      } else {
-        // Otros casos...
+        if (parts[3] === 'members') {
+          setCurrentPage('business-members'); 
+        } else {
+          setCurrentPage('negocios');
+        }
       }
     };
 
@@ -69,14 +66,14 @@ export default function App() {
       'admin-historial': '/admin/historial',
       'edit-profile': '/perfil/editar',
       'negocios': '/negocios',
-      'business-members': currentOrganization ? `/negocios/${currentOrganization.slug || currentOrganization.id}/miembros` : '/negocios',
-      'business-integrations': currentOrganization ? `/negocios/${currentOrganization.slug || currentOrganization.id}/integraciones` : '/negocios'
+      'business-members': currentOrganization ? `/negocios/${currentOrganization.id}/miembros` : '/negocios',
+      'business-integrations': currentOrganization ? `/negocios/${currentOrganization.id}/integraciones` : '/negocios'
     };
     const newPath = routeMap[currentPage] || '/';
     if (window.location.pathname !== newPath) {
       window.history.pushState(null, '', newPath);
     }
-  }, [currentPage, currentOrganization]);
+  }, [currentPage, currentOrganization?.id]);
 
   if (loading || (user && isLoadingOrganization)) {
     return (
